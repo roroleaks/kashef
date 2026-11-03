@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ShieldCheck, Moon, Sun } from 'lucide-react';
+import Image from 'next/image';
+import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 
 export const Header: React.FC = () => {
@@ -11,16 +12,21 @@ export const Header: React.FC = () => {
   return (
     <header className="header" role="banner">
       <div className="container header-content">
-        {/* Left Side: Logo Link */}
+        {/* Left Side: Logo Link with App Icon */}
         <Link 
           href="/" 
           className="logo-link flex items-center gap-2.5 group select-none"
           title="Kashef Home"
           aria-label="Kashef Home, AI text authorship estimation"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#1a5c8a] dark:bg-[#4da8da] flex items-center justify-center text-white dark:text-[#0f1720] shadow-sm transition-transform group-hover:scale-105">
-            <ShieldCheck className="w-5 h-5" aria-hidden="true" />
-          </div>
+          <Image
+            src="/app-icon.jpg"
+            alt="Kashef Logo"
+            width={40}
+            height={40}
+            className="w-10 h-10 rounded-xl object-cover shadow-sm ring-1 ring-[var(--color-border)] transition-transform group-hover:scale-105"
+            priority
+          />
           <div className="flex flex-col">
             <span className="font-bold text-base tracking-tight text-[var(--color-text)]">
               Kashef
