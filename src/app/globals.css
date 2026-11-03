@@ -14,6 +14,22 @@
   --color-text-muted: #5a6a78;
   --color-border: #e1e8ed;
   --color-border-focus: #1a5c8a;
+
+  /* Tiered Classification Colors (WCAG AA Compliant) */
+  /* Tier 1: Likely Human */
+  --color-ai-human: #15803d;
+  --color-ai-human-bg: #ecfdf5;
+  --color-ai-human-border: #86efac;
+
+  /* Tier 2: Mixed / Uncertain */
+  --color-ai-mixed: #b45309;
+  --color-ai-mixed-bg: #fef3c7;
+  --color-ai-mixed-border: #fde68a;
+
+  /* Tier 3: Distinct High AI Tier (Crimson / Ruby) */
+  --color-ai-high: #b91c1c;
+  --color-ai-high-bg: #fef2f2;
+  --color-ai-high-border: #fecaca;
   
   --shadow-sm: 0 1px 2px rgba(29, 35, 40, 0.06);
   --shadow-md: 0 4px 12px rgba(29, 35, 40, 0.08);
@@ -37,6 +53,19 @@
   --color-text-muted: #8b9cb3;
   --color-border: #2a3d4f;
   --color-border-focus: #4da8da;
+
+  /* Tiered Classification Colors (Dark Mode WCAG AA) */
+  --color-ai-human: #4ade80;
+  --color-ai-human-bg: #072a18;
+  --color-ai-human-border: #14532d;
+
+  --color-ai-mixed: #fbbf24;
+  --color-ai-mixed-bg: #2e1d05;
+  --color-ai-mixed-border: #78350f;
+
+  --color-ai-high: #f87171;
+  --color-ai-high-bg: #320f13;
+  --color-ai-high-border: #991b1b;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);

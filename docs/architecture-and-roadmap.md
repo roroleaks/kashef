@@ -1,70 +1,62 @@
-# Kashef — Architecture, Tech Stack & 4-Phase Roadmap
+# Kashef — Architecture, Real Tech Stack & 4-Phase Roadmap
 
 ---
 
-## 1. Proposed Tech Stack & Rationale
+## 1. Actual Tech Stack Specification
 
-| Layer / Concern | Selection | Consistency with Existing Repos & Rationale |
+| Concern | Production Choice | Rationale & Realized Architecture |
 | :--- | :--- | :--- |
-| **Framework** | **Next.js 15+ (App Router)** | Consistent with `AIMed` and `AIPICO-app`. Built-in serverless edge/Node API routes, native streaming support, SSR for SEO, zero-configuration Vercel deployment. |
-| **Language** | **TypeScript 5 (Strict Mode)** | Consistent with all modern repos (`AIMed`, `AIPICO-app`, `roshdy-med-suite`). Guarantees strong typing for modular detector interfaces (`DetectorEngine`, `DetectionResult`). |
-| **Styling** | **Tailwind CSS + CSS Design Tokens** | Consistent with `roshdy-med-suite`, `AIMed`, and `Sysrevai`. Provides standard Sysrevai CSS tokens (`--accent`, `--ink`, `--bg`, `--good`, `--warn`) with high-contrast utility classes. |
-| **Icons** | **Lucide React** | Consistent with `roshdy-med-suite`, `AIMed`, and `Sysrevai`. Clean, accessible SVG iconography. |
-| **Document Text Extraction** | **`mammoth`** (.docx) & **`pdf-parse` / `unpdf`** (.pdf) | Zero-footprint in-memory buffer processing without disk persistence. Fallback detection for scanned PDFs lacking digital text layers. |
-| **URL Article Extraction** | **`@mozilla/readability` + `jsdom`** | Server-side DOM parsing to cleanly isolate main article bodies and discard menus, advertisements, navigation bars, and footers. |
-| **Security & SSRF Mitigation** | **`ip-address` + DNS validation** | Blocks private RFC-1918 ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), loopback (127.0.0.1), link-local, and cloud metadata endpoints (169.254.169.254). Strict timeout (8s) and size limits (10MB). |
-| **Schema Validation** | **Zod** | Consistent with `AIMed` and `Sysrevai` for runtime request validation. |
-| **PDF Report Generation** | **`pdfkit` or `@react-pdf/renderer`** | Consistent with `AIMed` and `AIPICO-app` for deterministic client/server export. |
+| **Framework** | **Next.js 15 (App Router)** | Retained in-repo. Built-in Node.js server route handlers (`/api/extract`, `/api/analyze`), streaming body processing, zero client credential leakage, and seamless Vercel deployment. |
+| **Runtime & Language** | **Node.js 24 + TypeScript 5 (Strict Mode)** | Full end-to-end type safety, native DNS promise lookup, buffer streaming, and strict contracts (`DetectorEngine`). |
+| **Styling & Design System** | **Tailwind CSS 3.4 + CSS Design Tokens** | Extracted directly from `ehc-obgyn-guidelines` and `AIFV`. Clean light (`#1a5c8a`) and dark (`#4da8da`) modes, 3 distinct classification tiers (Human, Mixed, High AI), WCAG AA contrast. |
+| **Icons** | **Lucide React** | Consistent iconography matching Dr. Raouf Roshdy's medical AI suite. |
+| **Document Text Extraction** | **`mammoth`** (.docx) & **`unpdf`** (.pdf) | In-memory stream parsing without disk persistence. Clear `NO_TEXT_LAYER` exception for scanned image PDFs. |
+| **URL Extraction** | **`@mozilla/readability` + `jsdom`** | Isolates core article content, stripping boilerplate, ads, and navigation. |
+| **Security & SSRF Mitigation** | **Custom Multi-Layer SSRF Guard** (`src/lib/extractors/ssrf.ts`) | Blocks loopback, RFC 1918 private subnets, link-local (169.254.169.254), IPv6 equivalents, integer/hex encoded IPs, and validates DNS records on **every redirect** up to a 5-hop cap. |
+| **Language Detection** | **`franc-min`** (ISO 639-3) | Rapid statistical language detection (validates English `eng`, identifies Arabic `arb`, issues unsupported language warnings). |
+| **Validation** | **`zod`** | Schema validation for URL payloads, form requests, and structured LLM responses. |
+| **Testing** | **`vitest`** | Fast unit testing for SSRF blocking, extractor integrity, and detection math. |
 
 ---
 
-## 2. Proposed Folder Structure
+## 2. Real Folder Structure
 
 ```
 kashef/
 ├── docs/
-│   ├── design-tokens.md          # Extracted tokens & UI specification
-│   └── architecture-and-roadmap.md # Tech stack, folder structure & phase roadmap
+│   ├── design-tokens.md            # Extracted tokens with 3 distinct classification tiers
+│   ├── architecture-and-roadmap.md # Real tech stack & roadmap
+│   └── input-pipeline.md           # Step 1 implementation report
 ├── public/
-│   ├── dr-raouf.jpg              # Lead investigator avatar
+│   ├── dr-raouf.jpg                # Lead investigator avatar
 │   └── favicon.ico
 ├── src/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── extract/
-│   │   │   │   ├── file/route.ts # .docx & .pdf multipart in-memory parsing
-│   │   │   │   └── url/route.ts  # Hardened SSRF-safe URL reader & readability
-│   │   │   ├── analyze/
-│   │   │   │   └── route.ts      # Modular detector orchestration endpoint
-│   │   │   └── export-pdf/
-│   │   │       └── route.ts      # Server-side PDF generation for report download
-│   │   ├── globals.css           # Extracted Sysrevai/Preppt design tokens & base rules
-│   │   ├── layout.tsx            # Root layout with LTR/RTL support structure & metadata
-│   │   ├── page.tsx              # Landing page, hero, input tabs, & results container
+│   │   │   │   └── route.ts        # In-memory extraction (docx, pdf, SSRF-safe URL)
+│   │   │   └── analyze/
+│   │   │       └── route.ts        # Modular detector route (Phases 2-4)
+│   │   ├── globals.css             # Tiered color tokens, dark mode, typography
+│   │   ├── layout.tsx              # Root layout with LTR/RTL support structure
+│   │   ├── page.tsx                # Hero, tagline Option A, input tabs
 │   │   └── privacy/
-│   │       └── page.tsx          # In-memory ephemeral privacy statement
+│   │       └── page.tsx            # Ephemeral data privacy statement
 │   ├── components/
-│   │   ├── Header.tsx            # Standardized brand header, author badge & GitHub link
-│   │   ├── Footer.tsx            # Mandatory disclaimer banner, credits & legal links
-│   │   ├── InputTabs.tsx         # Upload / URL / Paste tabbed interface
-│   │   ├── ResultsView.tsx       # Probability gauge, heat-map, signal breakdown
-│   │   ├── ParagraphHeatMap.tsx  # Granular paragraph score visualization
-│   │   ├── SignalCard.tsx        # Statistical proxy & LLM explanation cards
-│   │   └── GithubIcon.tsx        # Inline SVG icon
+│   │   ├── Header.tsx              # EHC 3-zone header pattern with theme toggle
+│   │   ├── Footer.tsx              # EHC 3-line footer pattern with honesty disclaimer
+│   │   └── InputTabs.tsx           # Accessible 44px tap-target tabs
+│   ├── hooks/
+│   │   └── use-theme.ts            # AIFV localStorage theme synchronization hook
 │   └── lib/
-│       ├── detectors/
-│       │   ├── types.ts          # Unified DetectorEngine & AnalysisResult interfaces
-│       │   ├── statistical.ts    # Engine A: Perplexity, burstiness, variance, vocab diversity
-│       │   ├── llm-classifier.ts # Engine B: Server-side LLM evaluator (API-key protected)
-│       │   └── orchestrator.ts   # Weighted ensemble combiner & confidence calculator
 │       ├── extractors/
-│       │   ├── docx.ts           # Mammoth text extractor
-│       │   ├── pdf.ts            # Digital text-layer extractor & scanned layer detection
-│       │   └── url.ts            # Readability extractor with SSRF filter & timeouts
-│       └── utils/
-│           ├── language-detect.ts# Word-count validator & language detector (warn if non-English)
-│           └── text-stats.ts     # Syllable, sentence, token, and n-gram calculation helpers
-├── .env.example                  # Environment template for LLM API keys
+│       │   ├── docx.ts             # Mammoth in-memory docx parser
+│       │   ├── pdf.ts              # unpdf in-memory parser with text-layer validation
+│       │   ├── ssrf.ts             # Strict SSRF, DNS check, and encoded IP blocker
+│       │   ├── url.ts              # Readability extractor with per-redirect SSRF check
+│       │   └── utils.ts            # Word counting & franc-min language check
+│       └── detectors/              # Phase 2 detector modules
+├── eslint.config.mjs
 ├── package.json
 ├── tailwind.config.ts
 └── tsconfig.json
@@ -72,61 +64,28 @@ kashef/
 
 ---
 
-## 3. Four-Phase Task List with Acceptance Criteria
+## 3. Four-Phase Task Roadmap
 
-### Phase 1: Foundation, Design System & Input Pipeline Scaffold (Current)
-- [x] **Task 1.1: Design Tokens Extraction & Specification**
-  - *Acceptance Criteria*: Complete extraction of colors, typography, spacing, border radii, shadows, header/footer from existing repos into `/docs/design-tokens.md`. Explicit "Not found" section with zero invented tokens.
-- [x] **Task 1.2: Repository & Tech Stack Proposal**
-  - *Acceptance Criteria*: Scaffold GitHub repository `roroleaks/kashef` with Next.js 15, TypeScript, Tailwind, and matching brand identity.
-- [x] **Task 1.3: UI Skeleton & Scaffolding**
-  - *Acceptance Criteria*: Pixel-perfect header with Dr. Raouf Roshdy photo badge, empty 3-tab layout (Upload, URL, Paste), permanent honesty disclaimer footer, and ephemeral privacy page.
-- [ ] **Task 1.4: In-Memory File & URL Extraction Services**
-  - *Acceptance Criteria*:
-    - `.docx` extraction using `mammoth` entirely in memory.
-    - `.pdf` extraction using text-layer reader. If no text layer is found, return explicit error: *"No extractable text layer found (scanned image). OCR is planned for a later phase."*
-    - URL reader validates protocol (HTTP/HTTPS only), resolves DNS, blocks private/local IPs (SSRF protection), applies 8s timeout and 10MB limit, strips boilerplate via readability.
-    - Word counter rejects texts under 250 words with a user-friendly message.
-    - Language detector checks for English and warns if unsupported.
+### Phase 1: Input Pipeline & Extraction (Completed)
+- [x] **1.1 Design System & Tokens**: Updated with distinct Crimson "High AI" tier and Option A tagline.
+- [x] **1.2 In-Memory Input Pipeline**: `POST /api/extract` handling `.docx`, `.pdf` (`unpdf`), and URL (`readability` + `jsdom`).
+- [x] **1.3 Exhaustive SSRF & Redirect Guard**: Validates schemes, blocks loopback/private/cloud metadata/encoded IPs, re-checks on every redirect up to 5 hops.
+- [x] **1.4 Language & Length Constraints**: Minimum 250 words rule; `franc-min` language detection.
+- [x] **1.5 Unit Test Suite**: Comprehensive vitest coverage for extraction, SSRF, redirects, and limits.
 
----
+### Phase 2: Modular Detection Engines (Behind One Interface)
+- [ ] **2.1 Detector Contract**: Strict TypeScript interface `analyze(text: string): Promise<DetectionResult>`.
+- [ ] **2.2 Engine A (Statistical Signals)**: Sentence-length variance, burstiness proxy, vocabulary diversity (TTR), punctuation profile, and n-gram repetition.
+- [ ] **2.3 Engine B (Server-Side LLM Classifier)**: Server-side API key isolation (`.env.local`), structured JSON via zod, fallback to Engine A, per-IP rate limiting.
+- [ ] **2.4 Range & Confidence Combiner**: Produces probabilistic likelihood ranges, confidence scoring, and limitations notice.
 
-### Phase 2: Modular Detection Engines (Statistical & LLM)
-- [ ] **Task 2.1: Detector Interface & Modular Architecture**
-  - *Acceptance Criteria*: Strict TypeScript contract `DetectorEngine` exposing `analyze(text: string): Promise<DetectionResult>`.
-- [ ] **Task 2.2: Engine A — Statistical Proxy Signals**
-  - *Acceptance Criteria*:
-    - **Burstiness**: Sentence-length standard deviation and coefficient of variation.
-    - **Perplexity proxy**: Tri-gram frequency distribution and common token transitional entropy.
-    - **Vocabulary Diversity**: Type-Token Ratio (TTR) and Maas/Hapax legomena index.
-    - **Repetition Index**: Repetitive syntactic n-grams and transition phrase redundancy.
-    - Fully deterministic, run locally in Node.js server-side without external API calls.
-- [ ] **Task 2.3: Engine B — Server-Side LLM Classifier**
-  - *Acceptance Criteria*:
-    - Calls external LLM classifier endpoint strictly server-side.
-    - API keys isolated in server environment variables (`.env.local`), zero exposure to client bundles.
-    - Resilient timeout (12s) and graceful degradation if the API is unavailable.
-- [ ] **Task 2.4: Ensemble Combiner & Confidence Estimator**
-  - *Acceptance Criteria*: Produces an overall probability range (e.g. "65% – 78% likely AI-assisted") rather than a single hard binary verdict. Calculates a transparent confidence level and limitations note.
+### Phase 3: Evaluation Harness & Benchmark Suite
+- [ ] **3.1 Evaluation Dataset**: Curated benchmark with labeled human text, pure AI text, blended/edited AI, and non-native English.
+- [ ] **3.2 Metrics Harness**: Measures accuracy, false-positive rate, and false-negative rate per engine without inflating claims.
+- [ ] **3.3 "About the Method" Page**: Public documentation of measured benchmark figures.
 
----
-
-### Phase 3: Results Visualization & Interactive Heat-Map UI
-- [ ] **Task 3.1: Probability Gauge & Classification Range**
-  - *Acceptance Criteria*: Responsive non-judgmental visual gauge labeled with probabilistic terminology ("Likely human-authored", "Mixed / Possibly AI-assisted", "Likely AI-generated").
-- [ ] **Task 3.2: Per-Paragraph Heat-Map**
-  - *Acceptance Criteria*: Splits document into paragraphs, computes individual proxy scores, and highlights them using Sysrevai alert scales (`--good-bg` for human-like, `--warn-bg` for mixed, `--danger-bg` for high AI likelihood). Clicking a paragraph reveals contributing factors.
-- [ ] **Task 3.3: Plain-Language Signal Breakdown**
-  - *Acceptance Criteria*: Expandable diagnostic cards explaining which specific linguistic factors (burstiness, lexical repetition, uniform sentence length) contributed to the score.
-- [ ] **Task 3.4: PDF Report Export**
-  - *Acceptance Criteria*: Downloadable PDF report containing the document metrics, paragraph breakdown, timestamp, and mandatory academic integrity disclaimer.
-
----
-
-### Phase 4: Arabic Language Expansion & Hardening
-- [ ] **Task 4.1: Arabic Language Support (RTL & Tokenization)**
-  - *Acceptance Criteria*: Complete Arabic text tokenization, Arabic stopword filtering, Tashkeel/diacritics handling, and native RTL UI flip (`dir="rtl"`).
-- [ ] **Task 4.2: WCAG 2.1 AA Accessibility & Keyboard Nav Audit**
-  - *Acceptance Criteria*: 100% keyboard navigable tab panels, ARIA live regions for analysis status, minimum 4.5:1 text contrast across all badges and heat-map highlights.
-- [ ] **Task 4.3: Automated Regression & Security Test Suite**
-  - *Acceptance Criteria*: Unit tests verifying SSRF blocking against IPv4/IPv6 private ranges, text extraction parity tests for DOCX/PDF, and synthetic detection benchmark tests.
+### Phase 4: Results Visualization & Multi-Format Export
+- [ ] **4.1 Likelihood Gauge**: Visual range display with probabilistic language ("likely", "possibly").
+- [ ] **4.2 Paragraph Heat-Map**: Granular paragraph highlighting utilizing the 3 distinct color tiers.
+- [ ] **4.3 Plain-Language Signal Breakdown**: Informative diagnostic cards explaining contributing signals.
+- [ ] **4.4 Multi-Format Export**: Follows AIFV export pattern (PDF print layout, JSON, and Markdown downloads).

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { extractFromDocx } from '@/lib/extractors/docx';
 import { extractFromPdf } from '@/lib/extractors/pdf';
 import { extractFromUrl } from '@/lib/extractors/url';
@@ -6,6 +7,10 @@ import { MAX_FILE_SIZE_BYTES, validateExtractedText } from '@/lib/extractors/uti
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const UrlPayloadSchema = z.object({
+  url: z.string().trim().min(1, 'URL cannot be empty'),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,16 +20,22 @@ export async function POST(req: NextRequest) {
 
     // A. URL JSON Payload: { "url": "https://..." }
     if (contentType.includes('application/json')) {
-      const body = await req.json().catch(() => null);
-      if (!body || typeof body.url !== 'string' || !body.url.trim()) {
+      const rawBody = await req.json().catch(() => null);
+      const parseResult = UrlPayloadSchema.safeParse(rawBody);
+
+      if (!parseResult.success) {
         return NextResponse.json(
-          { error: 'INVALID_REQUEST', message: 'Missing or invalid "url" parameter in request body.' },
+          {
+            error: 'INVALID_REQUEST',
+            message: parseResult.error.issues[0]?.message || 'Invalid URL payload format.',
+          },
           { status: 400 }
         );
       }
 
-      source = `url:${body.url.trim()}`;
-      extractedText = await extractFromUrl(body.url.trim());
+      const { url } = parseResult.data;
+      source = `url:${url}`;
+      extractedText = await extractFromUrl(url);
     } 
     // B. File Upload via multipart/form-data
     else if (contentType.includes('multipart/form-data')) {
@@ -95,7 +106,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Ephemeral response: return extracted text in-memory to the client session
+    // Ephemeral in-memory response: text is never stored on disk or logged
     return NextResponse.json({
       success: true,
       text: extractedText,
@@ -111,6 +122,9 @@ export async function POST(req: NextRequest) {
     // Map known extraction errors to proper HTTP statuses
     if (message.startsWith('SSRF_BLOCKED')) {
       return NextResponse.json({ error: 'SSRF_BLOCKED', message }, { status: 403 });
+    }
+    if (message.startsWith('REDIRECT_LIMIT_EXCEEDED')) {
+      return NextResponse.json({ error: 'REDIRECT_LIMIT_EXCEEDED', message }, { status: 400 });
     }
     if (message.startsWith('NO_TEXT_LAYER')) {
       return NextResponse.json({ error: 'NO_TEXT_LAYER', message }, { status: 422 });

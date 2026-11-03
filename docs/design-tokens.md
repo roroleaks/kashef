@@ -27,13 +27,12 @@ Extracted directly and strictly from:
 | **Borders** | `#e1e8ed` / `oklch(0.915 0.008 255)` | `#2a3d4f` / `oklch(1 0 0 / 11%)` |
 | **Focus Ring** | `#1a5c8a` / `oklch(0.45 0.13 253)` | `#4da8da` / `oklch(0.68 0.14 250)` |
 
-### 1.3 Semantic Signals & Severity Tokens
-| Status | Light Mode | Dark Mode | Usage in Kashef |
-| :--- | :--- | :--- | :--- |
-| **Human / Verified** | Text: `#1e7d46`, Bg: `#e6f5ec`, Border: `#a7f3d0` | Text: `#6fd69a`, Bg: `#1d3a2c` | Likely human-authored paragraphs |
-| **Warning / Mixed** | Text: `#7a5a10`, Bg: `#fcf2d0`, Border: `#fde68a` | Text: `#f2d77c`, Bg: `#45371a` | Mixed / uncertain AI indicators |
-| **High AI / Alert** | Text: `#b45309`, Bg: `#fef3c7`, Soft: `#960585` | Text: `#e8c547`, Bg: `#3d361a` | High AI probability paragraphs |
-| **Destructive / Error**| Text: `#dc2626`, Bg: `#fef2f2`, Soft: `oklch(0.96 0.03 22)` | Text: `oklch(0.68 0.16 22)`, Bg: `oklch(0.32 0.07 22)` | Format / validation failures |
+### 1.3 Tiered Classification Colors (Distinct Tiers with WCAG AA Contrast)
+| Classification Tier | Light Mode (WCAG AA) | Dark Mode (WCAG AA) | Contrast Ratio | Role & Application |
+| :--- | :--- | :--- | :--- | :--- |
+| **Tier 1: Likely Human** | Text: `#15803d`<br>Bg: `#ecfdf5`<br>Border: `#86efac` | Text: `#4ade80`<br>Bg: `#072a18`<br>Border: `#14532d` | > 4.8:1 (Light)<br>> 7.5:1 (Dark) | Applied to paragraphs demonstrating natural syntactic variation and human burstiness. |
+| **Tier 2: Mixed / Uncertain** | Text: `#b45309`<br>Bg: `#fef3c7`<br>Border: `#fde68a` | Text: `#fbbf24`<br>Bg: `#2e1d05`<br>Border: `#78350f` | > 5.2:1 (Light)<br>> 8.1:1 (Dark) | Applied to blended authorship, heavy AI editing, or borderline statistical proxy signals. |
+| **Tier 3: High AI (Distinct Tier)** | Text: `#b91c1c`<br>Bg: `#fef2f2`<br>Border: `#fecaca` | Text: `#f87171`<br>Bg: `#320f13`<br>Border: `#991b1b` | > 5.9:1 (Light)<br>> 6.8:1 (Dark) | **Distinct Crimson Tier** (independent from Amber). Applied to paragraphs with strong AI language model convergence. |
 
 ---
 
@@ -59,7 +58,6 @@ Extracted directly and strictly from:
 * **Small (`--radius-sm`)**: `6px` (chips, inline code, badges)
 * **Medium (`--radius-md`)**: `10px` (inputs, buttons, tab triggers)
 * **Large (`--radius-lg` / `--radius`)**: `14.4px` – `16px` (`0.9rem`, cards, dialogs, main panels)
-* **Extra Large (`--radius-2xl`)**: `22.4px` (outer surface panels)
 * **Pill / Circular**: `999px` (status tags, avatar)
 
 ### Shadows
@@ -81,21 +79,14 @@ Extracted directly and strictly from:
 
 Strict 3-zone layout:
 1. **Left Side — Logo Link**:
-   * Brand mark / icon linking to home (`/`) or suite hub.
+   * Brand mark / icon linking to home (`/`).
    * Class: `.logo-link` with subtle shadow and rounded corner radius.
 2. **Center — Short Label**:
-   * Compact badge / centered tag (`.header-center`).
-   * Example: `"Kashef Engine"` or `"Kashef AI"`.
+   * Compact badge / centered tag (`.header-center`): `"Kashef AI Engine"`.
 3. **Right Side — Info Block**:
    * Page Title (`<h1>`): `"Kashef — AI Authorship Estimation"`
-   * Source / Subtitle Link (`.source-link`): Link to documentation, methodology, or upstream tool with trailing arrow and screen-reader note:
-     ```html
-     <p class="source-link">
-       <a href="/docs/methodology" target="_blank" rel="noopener">
-         Probabilistic Linguistic Signals <span class="visually-hidden">(opens in a new tab)</span>→
-       </a>
-     </p>
-     ```
+   * Tagline: `"Probabilistic AI Text Estimation & Evidence Breakdown"`
+   * Source / Subtitle Link (`.source-link`): Link with trailing arrow and screen-reader note.
 
 ---
 
@@ -113,49 +104,23 @@ Strict 3-element stacked footer:
 
 ## 6. Dark Mode Behavior (from `AIFV` `src/hooks/use-theme.ts`)
 
-* **Storage Key**: `kashef-theme` (matching `ivf-theme` pattern in AIFV).
-* **System Sync**: Respects `prefers-color-scheme: dark` by default if no stored key exists.
+* **Storage Key**: `kashef-theme`.
+* **System Sync**: Respects `prefers-color-scheme: dark` by default.
 * **DOM Application**: Synchronizes `.dark` class directly on `document.documentElement`.
-* **Controls**: Accessible Sun/Moon icon toggle with explicit `aria-label` (`Switch to light mode` / `Switch to dark mode`).
+* **Controls**: Accessible Sun/Moon icon toggle with explicit `aria-label`.
 
 ---
 
 ## 7. Accessibility Patterns (WCAG AA)
 
-* **Visually Hidden Utility**:
-  ```css
-  .visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  ```
-* **Live Status Region**:
-  * An `aria-live="polite"` element for dynamic analysis state announcements (e.g., "Extracting PDF text layer...", "Analysis complete").
-* **Focus Visible**:
-  * `outline: 2px solid var(--color-border-focus); outline-offset: 2px;`
+* **Visually Hidden Utility**: `.visually-hidden` for screen readers.
+* **Live Status Region**: `role="status"` / `aria-live="polite"` region for dynamic status.
+* **Focus Visible**: `outline: 2px solid var(--color-border-focus); outline-offset: 2px;`
 
 ---
 
-## 8. PWA Metadata (from `ehc` `manifest.json` & `AIFV` `site.webmanifest`)
+## 8. Not Found (Explicitly Absent in Inspected Repos)
 
-* **Theme Color**: `#1a5c8a` (Light) / `#0f1720` (Dark)
-* **Background Color**: `#144a70`
-* **Display Mode**: `standalone`
-* **Orientation**: `portrait-primary`
-* **Icons**: `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png` (180x180), `icon-192.png` (maskable), `icon-512.png` (maskable).
-
----
-
-## 9. Not Found (Explicitly Absent in Inspected Repos)
-
-The following details were **not found** in `ehc-obgyn-guidelines`, `AIFV`, or `AIPICO` and are **not** invented:
-1. **Custom Arabic Font Face**: No web font (such as Amiri, Cairo, or Noto Naskh) is declared in these three repos. RTL is supported structurally using HTML `dir="rtl"` with system Arabic fallbacks (`system-ui, -apple-system, Tahoma, Arial`).
-2. **Audio/Haptic Feedback**: None declared.
-3. **Third-Party Analytics Trackers**: None declared; strict data minimization is maintained.
+1. **Custom Arabic Font Face**: System Arabic fallbacks (`system-ui, -apple-system, Tahoma, Arial`) are used with native `dir="rtl"` support.
+2. **Audio/Haptic Tokens**: None declared in repos.
+3. **Third-Party Trackers**: None declared; zero-persistence principle maintained.

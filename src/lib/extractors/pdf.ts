@@ -1,17 +1,19 @@
-import { PDFParse } from 'pdf-parse';
+import { extractText } from 'unpdf';
 
 /**
- * Extracts digital text layer from an in-memory PDF buffer.
- * If the PDF has no digital text layer (e.g., scanned image), throws NO_TEXT_LAYER.
+ * Extracts digital text layer from an in-memory PDF buffer using unpdf.
+ * If the PDF has no digital text layer (e.g. scanned image), throws NO_TEXT_LAYER.
  * Purely in-memory: no files are written to disk.
  */
 export async function extractFromPdf(buffer: Buffer): Promise<string> {
-  let parser: PDFParse | undefined;
   try {
-    parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    const rawText = result.text || '';
-    const cleanText = rawText.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+    const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const { text } = await extractText(uint8, { mergePages: true });
+    const rawString = typeof text === 'string' ? text : Array.isArray(text) ? (text as string[]).join('\n\n') : '';
+    const cleanText = rawString
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s*\n+/g, '\n\n')
+      .trim();
 
     // Check if any actual words exist in the text layer
     const words = cleanText.split(/\s+/).filter((w: string) => w.length > 0);
@@ -30,9 +32,5 @@ export async function extractFromPdf(buffer: Buffer): Promise<string> {
     throw new Error(
       `PDF_PARSE_ERROR: Failed to parse .pdf document: ${err instanceof Error ? err.message : String(err)}`
     );
-  } finally {
-    if (parser) {
-      await parser.destroy().catch(() => {});
-    }
   }
 }

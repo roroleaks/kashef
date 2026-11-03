@@ -2,7 +2,7 @@ import React from 'react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { InputTabs } from '@/components/InputTabs';
-import { ShieldCheck, BarChart2, Layers, Download } from 'lucide-react';
+import { BarChart2, Layers, Download } from 'lucide-react';
 
 export default function Home() {
   return (

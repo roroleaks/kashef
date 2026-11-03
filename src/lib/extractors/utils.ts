@@ -1,3 +1,5 @@
+import { franc } from 'franc-min';
+
 export const MIN_WORD_COUNT = 250;
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -17,25 +19,13 @@ export function countWords(text: string): number {
 }
 
 /**
- * Simple, fast heuristic language detector checking for standard Latin/English tokens vs non-Latin.
+ * Language detector using franc-min (ISO 639-3).
+ * Returns 'eng' for English, 'arb' for Arabic, etc.
  */
 export function detectLanguage(text: string): { language: string; isEnglish: boolean } {
-  // Check for Arabic characters
-  const arabicRegex = /[\u0600-\u06FF]/g;
-  const arabicMatches = text.match(arabicRegex);
-  if (arabicMatches && arabicMatches.length > 50) {
-    return { language: 'ar', isEnglish: false };
-  }
-
-  // Count Latin characters vs others
-  const latinMatches = text.match(/[A-Za-z]/g) || [];
-  const totalLetters = text.match(/\p{L}/gu) || [];
-
-  if (totalLetters.length > 0 && latinMatches.length / totalLetters.length > 0.8) {
-    return { language: 'en', isEnglish: true };
-  }
-
-  return { language: 'und', isEnglish: false };
+  const code = franc(text);
+  const isEnglish = code === 'eng';
+  return { language: code, isEnglish };
 }
 
 /**
@@ -62,6 +52,6 @@ export function validateExtractedText(text: string): ValidationResult {
     isEnglish,
     message: isEnglish
       ? undefined
-      : `Detected language (${language.toUpperCase()}) is currently unsupported. Analysis is optimized for English; Arabic language support is planned for a later phase.`,
+      : `Detected language (${language}) is not English. Kashef Phase 1 analysis is calibrated for English text. Arabic language support is planned for a later phase.`,
   };
 }
