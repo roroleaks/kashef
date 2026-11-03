@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { InputTabs } from '@/components/InputTabs';
@@ -10,17 +11,42 @@ export default function Home() {
       <Header />
 
       <main className="container my-8 flex-1">
-        {/* Eyebrow & Hero Section (matching AIFV PageHeader pattern) */}
-        <div className="mb-8">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-primary)] mb-1">
-            Linguistic Analysis & Document Integrity
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--color-text)]">
-            Kashef — AI Authorship & Origin Estimation
-          </h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)] max-w-2xl leading-relaxed">
-            Multi-signal probabilistic evaluation combining statistical language proxies (burstiness, perplexity indicators, lexical diversity) with server-side model classifiers.
-          </p>
+        {/* Eyebrow & Hero Section with Author Profile on the right */}
+        <div className="mb-8 p-6 sm:p-8 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--color-primary-light)] text-[var(--color-primary)] text-[11px] font-bold uppercase tracking-[0.14em] mb-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" />
+              Linguistic Analysis & Document Integrity
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--color-text)]">
+              Kashef — AI Authorship & Origin Estimation
+            </h2>
+            <p className="mt-2 text-sm text-[var(--color-text-muted)] leading-relaxed">
+              Multi-signal probabilistic evaluation combining statistical language proxies (sentence burstiness, transition entropy, lexical diversity) with server-side model classifiers.
+            </p>
+          </div>
+
+          {/* Dr. Raouf Roshdy Photo Card at the right of the first page */}
+          <div className="flex items-center gap-4 shrink-0 bg-[var(--color-bg)] p-4 rounded-xl border border-[var(--color-border)] self-start md:self-center shadow-xs">
+            <Image
+              src="/dr-raouf-roshdy.jpg"
+              alt="Dr. Raouf Roshdy"
+              width={80}
+              height={80}
+              className="size-16 sm:size-20 rounded-full object-cover ring-2 ring-[var(--color-primary)]/30 shadow-sm"
+            />
+            <div>
+              <p className="text-sm font-bold text-[var(--color-text)] tracking-tight">
+                Dr. Raouf Roshdy
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
+                Lead Clinical & AI Researcher
+              </p>
+              <span className="inline-flex items-center mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[var(--color-primary-light)] text-[var(--color-primary)]">
+                Author & Platform Architect
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Input Interface */}
