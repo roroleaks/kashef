@@ -12,7 +12,8 @@ Kashef estimates the likelihood that a document was authored or co-authored by a
 ### Key Principles
 * **Probabilistic Integrity**: Detector results are probabilistic indicators that can produce false positives and false negatives. Kashef never presents scores as certain verdicts.
 * **Zero Persistence**: All uploaded files (`.docx`, `.pdf`), URLs, and pasted text are processed purely in volatile server memory and discarded immediately upon response delivery. Nothing is logged or written to disk.
-* **Security Guardrails**: Hardened against Server-Side Request Forgery (SSRF) with multi-tier IP/DNS validation, encoded IP detection, and per-redirect verification up to a 5-hop cap.
+* **Security Guardrails**: Hardened against Server-Side Request Forgery (SSRF) and DNS rebinding with socket connection IP pinning, multi-tier IP/DNS subnet filtering, encoded/numeric IP normalization, and per-redirect verification capped at 3 hops.
+* **Rate Limiting**: In-memory sliding window rate limiter enforcing 20 requests per minute per IP on extraction endpoints.
 * **Design System**: Directly extracted from Dr. Raouf Roshdy's medical AI suite (`ehc-obgyn-guidelines` and `AIFV`), featuring WCAG AA accessible contrast, light and dark modes, and full keyboard navigation.
 
 ---

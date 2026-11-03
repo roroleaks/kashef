@@ -27,12 +27,14 @@ Extracted directly and strictly from:
 | **Borders** | `#e1e8ed` / `oklch(0.915 0.008 255)` | `#2a3d4f` / `oklch(1 0 0 / 11%)` |
 | **Focus Ring** | `#1a5c8a` / `oklch(0.45 0.13 253)` | `#4da8da` / `oklch(0.68 0.14 250)` |
 
-### 1.3 Tiered Classification Colors (Distinct Tiers with WCAG AA Contrast)
-| Classification Tier | Light Mode (WCAG AA) | Dark Mode (WCAG AA) | Contrast Ratio | Role & Application |
+### 1.3 Tiered Classification Colors (Computed & Verified by WCAG 2.1 AA Test Suite)
+Every pair is verified by automated mathematical testing in `src/lib/extractors/__tests__/pipeline.test.ts` against the WCAG 2.1 AA requirement of $\ge 4.5:1$ contrast ratio for standard body text.
+
+| Classification Tier | Light Mode Tokens | Dark Mode Tokens | Verified Contrast Ratio (Vitest Computed) | Role & Application |
 | :--- | :--- | :--- | :--- | :--- |
-| **Tier 1: Likely Human** | Text: `#15803d`<br>Bg: `#ecfdf5`<br>Border: `#86efac` | Text: `#4ade80`<br>Bg: `#072a18`<br>Border: `#14532d` | > 4.8:1 (Light)<br>> 7.5:1 (Dark) | Applied to paragraphs demonstrating natural syntactic variation and human burstiness. |
-| **Tier 2: Mixed / Uncertain** | Text: `#b45309`<br>Bg: `#fef3c7`<br>Border: `#fde68a` | Text: `#fbbf24`<br>Bg: `#2e1d05`<br>Border: `#78350f` | > 5.2:1 (Light)<br>> 8.1:1 (Dark) | Applied to blended authorship, heavy AI editing, or borderline statistical proxy signals. |
-| **Tier 3: High AI (Distinct Tier)** | Text: `#b91c1c`<br>Bg: `#fef2f2`<br>Border: `#fecaca` | Text: `#f87171`<br>Bg: `#320f13`<br>Border: `#991b1b` | > 5.9:1 (Light)<br>> 6.8:1 (Dark) | **Distinct Crimson Tier** (independent from Amber). Applied to paragraphs with strong AI language model convergence. |
+| **Tier 1: Likely Human** | Text: `#15803d`<br>Bg: `#ecfdf5`<br>Border: `#86efac` | Text: `#4ade80`<br>Bg: `#072a18`<br>Border: `#14532d` | **4.76:1** (Light)<br>**8.90:1** (Dark) | Applied to text demonstrating natural syntactic burstiness, irregular clause distributions, and human lexical patterns. |
+| **Tier 2: Mixed / Uncertain** | Text: `#b45309`<br>Bg: `#fef3c7`<br>Border: `#fde68a` | Text: `#fbbf24`<br>Bg: `#2e1d05`<br>Border: `#78350f` | **4.51:1** (Light)<br>**9.72:1** (Dark) | Applied to blended authorship, heavy AI editing, or borderline statistical proxy signals. |
+| **Tier 3: High AI (Distinct Tier)** | Text: `#b91c1c`<br>Bg: `#fef2f2`<br>Border: `#fecaca` | Text: `#f87171`<br>Bg: `#320f13`<br>Border: `#991b1b` | **5.91:1** (Light)<br>**6.26:1** (Dark) | **Distinct Crimson Tier** (independent from Amber). Applied to paragraphs with uniform sentence structure and strong AI model convergence. |
 
 ---
 
