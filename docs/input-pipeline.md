@@ -12,11 +12,13 @@ Implemented and verified in repo `roroleaks/kashef`.
 * **Zero Persistence Principle**:
   * Ingested documents and extracted text reside strictly in volatile process memory (`Buffer`, `Uint8Array`).
   * No file uploads or extracted text are written to disk, scratch directories, or application logs.
-* **Per-IP Rate Limiting**:
+* **Per-IP Rate Limiting (`src/lib/rate-limiter.ts`)**:
   * Limit: **20 requests per minute per IP** via `MemoryRateLimiter` sliding window.
   * Headers returned on all requests: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
   * Exceeded status: `429 Too Many Requests` with RFC `Retry-After: <seconds>` header.
-  * **Multi-instance Behavior**: In a single-instance environment, state is strictly enforced in process memory. In horizontal or serverless multi-instance deployments (e.g. AWS Lambda / Edge containers without sticky sessions), each instance tracks its local sliding window; distributed scaling can back the rate limiter interface with an external centralized store (e.g., Upstash Redis) or edge gateway rate limiting.
+  * **Client IP Determination & Proxy Trust**: Inspects headers in order (`cf-connecting-ip`, `x-real-ip`, leftmost `x-forwarded-for`, with fallback to socket address). Note on trust: `X-Forwarded-For` is only reliable when running behind an edge proxy/load balancer configured to sanitize or overwrite client-provided headers; in direct deployments without a reverse proxy, client-supplied headers could be spoofed.
+  * **Memory Cleanup**: Automatically prunes stale timestamps and drops expired IP entries every 60 seconds to prevent memory unbounded growth.
+  * **Multi-instance Behavior**: Strictly **per-instance** in process memory. In horizontal or serverless multi-instance deployments (e.g. AWS Lambda / container clusters without sticky sessions), each instance maintains an independent window; total capacity scales to $N \times 20$ requests/min across $N$ instances. Production distributed clusters can swap the store with an external centralized cache (e.g. Upstash Redis) or enforce limits at an edge gateway (Cloudflare, NGINX).
 
 ---
 
@@ -40,11 +42,11 @@ Implemented and verified in repo `roroleaks/kashef`.
 
 ## 3. SSRF Protection & Connection IP Pinning (`src/lib/extractors/ssrf.ts`)
 
-To eliminate Server-Side Request Forgery and DNS Rebinding (TOCTOU) attacks:
+To defend against Server-Side Request Forgery and reduce the check-to-fetch window for DNS rebinding attacks:
 1. **Connection IP Pinning**:
    * Initial URL is validated via DNS lookup checking all A and AAAA records.
-   * Connection is established via custom socket `lookup` pinned strictly to the validated IP.
-   * Transmits standard `Host` and TLS SNI `servername` headers matching the URL hostname, ensuring full TLS certificate validation while preventing DNS answers from mutating between check and socket connection.
+   * Socket connection is established via custom lookup pinned to the validated IP address, significantly reducing the check-to-fetch window between DNS validation and TCP handshake.
+   * Transmits standard `Host` and TLS SNI `servername` headers matching the URL hostname, ensuring full TLS certificate validation.
 2. **Blocked IPv4 Subnets**:
    * `0.0.0.0/8` (Current network / "this" host RFC 1122)
    * `10.0.0.0/8` (Private RFC 1918)

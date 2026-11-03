@@ -1,38 +1,67 @@
+import { z } from 'zod';
+
 /**
- * Strict TypeScript contract for Kashef detection engines.
- * All detectors (statistical, LLM-based, ensemble) implement this modular interface.
+ * Detection status labels conforming strictly to Kashef design tokens and specification.
  */
+export const DetectionLabelSchema = z.enum([
+  'Likely human',
+  'Mixed / uncertain',
+  'Likely AI-assisted',
+  'Insufficient evidence',
+]);
+export type DetectionLabel = z.infer<typeof DetectionLabelSchema>;
 
-export type DetectionLabel = 'likely_human' | 'mixed_uncertain' | 'likely_ai';
+/**
+ * Signal indication direction.
+ */
+export const SignalDirectionSchema = z.enum(['human', 'ai', 'neutral']);
+export type SignalDirection = z.infer<typeof SignalDirectionSchema>;
 
-export interface SignalEvidence {
-  name: string;
-  value: number | string;
-  benchmark?: string;
-  description: string;
-  scoreContribution: number; // -1.0 (strongly human-like) to +1.0 (strongly AI-like)
-}
+/**
+ * Individual evidence signal returned by detection engines.
+ */
+export const SignalEvidenceSchema = z.object({
+  name: z.string(),
+  value: z.union([z.number(), z.string()]),
+  direction: SignalDirectionSchema,
+  reason: z.string(),
+  benchmark: z.string().optional(),
+  provisionalScore: z.number().min(0).max(1).optional(),
+});
+export type SignalEvidence = z.infer<typeof SignalEvidenceSchema>;
 
-export interface ParagraphAnalysis {
-  text: string;
-  index: number;
-  wordCount: number;
-  score: [number, number]; // [low, high] probability range 0–100
-  label: DetectionLabel;
-  signals: SignalEvidence[];
-}
+/**
+ * Per-paragraph analysis breakdown.
+ */
+export const ParagraphAnalysisSchema = z.object({
+  text: z.string(),
+  index: z.number(),
+  wordCount: z.number(),
+  score: z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]),
+  label: DetectionLabelSchema,
+  signals: z.array(SignalEvidenceSchema),
+});
+export type ParagraphAnalysis = z.infer<typeof ParagraphAnalysisSchema>;
 
-export interface DetectionResult {
-  score: [number, number]; // Overall probability range, e.g. [68, 82]
-  label: DetectionLabel;
-  confidence: number; // Confidence level 0.0 – 1.0 (0% – 100%)
-  evidence: SignalEvidence[];
-  paragraphs: ParagraphAnalysis[];
-  limitations: string;
-  engineUsed: string;
-  timestamp: string;
-}
+/**
+ * Main Detection Result schema validated via Zod.
+ * Scores are strictly 0.0 - 1.0 probability ranges [low, high].
+ */
+export const DetectionResultSchema = z.object({
+  score: z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]),
+  label: DetectionLabelSchema,
+  confidence: z.number().min(0).max(1),
+  evidence: z.array(SignalEvidenceSchema),
+  paragraphs: z.array(ParagraphAnalysisSchema),
+  limitations: z.array(z.string()),
+  engineId: z.string().optional(),
+  timestamp: z.string().optional(),
+});
+export type DetectionResult = z.infer<typeof DetectionResultSchema>;
 
+/**
+ * Interface for modular, interchangeable detection engines.
+ */
 export interface DetectorEngine {
   readonly id: string;
   readonly name: string;

@@ -1,7 +1,12 @@
 import { DetectorEngine, DetectionResult } from './types';
+import { engineA } from './engine-a';
 
 const engines = new Map<string, DetectorEngine>();
-let defaultEngineId = 'statistical';
+let defaultEngineId = 'engine-a-statistical';
+
+// Register standard built-in engines
+engines.set(engineA.id, engineA);
+engines.set('statistical', engineA); // Alias
 
 /**
  * Registers an interchangeable detector engine implementation.
@@ -28,7 +33,6 @@ export function getDetector(engineId?: string): DetectorEngine {
   const engine = engines.get(targetId);
 
   if (!engine) {
-    // If specific engine missing, fall back to any registered engine
     const firstAvailable = engines.values().next().value;
     if (firstAvailable) {
       return firstAvailable;
@@ -60,3 +64,6 @@ export async function analyze(text: string, engineId?: string): Promise<Detectio
 
 export * from './types';
 export * from './utils';
+export * from './engine-a';
+export * from './combiner';
+export * from './config/thresholds';

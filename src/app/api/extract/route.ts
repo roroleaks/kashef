@@ -4,7 +4,7 @@ import { extractFromDocx } from '@/lib/extractors/docx';
 import { extractFromPdf } from '@/lib/extractors/pdf';
 import { extractFromUrl } from '@/lib/extractors/url';
 import { MAX_FILE_SIZE_BYTES, validateExtractedText } from '@/lib/extractors/utils';
-import { extractRateLimiter } from '@/lib/rate-limiter';
+import { extractRateLimiter, getClientIp } from '@/lib/rate-limiter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,11 +15,8 @@ const UrlPayloadSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Per-IP Rate Limiting (20 requests per minute per IP)
-    const clientIp =
-      req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-      req.headers.get('x-real-ip') ||
-      '127.0.0.1';
+    // 1. Per-IP Rate Limiting (20 requests per minute per IP, per-instance sliding window)
+    const clientIp = getClientIp(req);
 
     const rateLimitResult = extractRateLimiter.check(clientIp);
 
