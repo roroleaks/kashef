@@ -90,7 +90,7 @@ To defend against Server-Side Request Forgery and reduce the check-to-fetch wind
 
 ## 5. Automated Test Suite (Vitest)
 
-All 30 tests in the test suite pass cleanly:
+All tests in the automated Vitest test suite pass cleanly:
 1. SSRF loopback & numeric variant blocking (decimal, hex, octal).
 2. Extended subnet blocking (0.0.0.0/8, 100.64.0.0/10, 192.0.0.0/24, 198.18.0.0/15, multicast, reserved).
 3. Localhost and internal hostname alias blocking (`*.localhost`, `*.internal`, `*.local`, `*.lan`).

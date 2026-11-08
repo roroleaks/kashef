@@ -117,26 +117,33 @@ export class MemoryRateLimiter {
 
 /**
  * Extracts and sanitizes the client IP address from request headers.
+ * Respects KASHEF_TRUST_PROXY_HEADERS environment variable (defaults to true for backward compatibility).
+ * When KASHEF_TRUST_PROXY_HEADERS='false', proxy forwarding headers are ignored to prevent header-spoofing
+ * or proxy misconfigurations in direct socket deployments.
  */
 export function getClientIp(req: NextRequest): string {
-  // 1. Cloudflare / Edge header
-  const cfIp = req.headers.get('cf-connecting-ip');
-  if (cfIp && cfIp.trim().length > 0) {
-    return cfIp.trim();
-  }
+  const trustProxy = process.env.KASHEF_TRUST_PROXY_HEADERS !== 'false';
 
-  // 2. Standard single-proxy header
-  const realIp = req.headers.get('x-real-ip');
-  if (realIp && realIp.trim().length > 0) {
-    return realIp.trim();
-  }
+  if (trustProxy) {
+    // 1. Cloudflare / Edge header
+    const cfIp = req.headers.get('cf-connecting-ip');
+    if (cfIp && cfIp.trim().length > 0) {
+      return cfIp.trim();
+    }
 
-  // 3. Multi-proxy forwarded header (leftmost IP is origin client)
-  const forwardedFor = req.headers.get('x-forwarded-for');
-  if (forwardedFor && forwardedFor.trim().length > 0) {
-    const firstIp = forwardedFor.split(',')[0].trim();
-    if (firstIp.length > 0) {
-      return firstIp;
+    // 2. Standard single-proxy header
+    const realIp = req.headers.get('x-real-ip');
+    if (realIp && realIp.trim().length > 0) {
+      return realIp.trim();
+    }
+
+    // 3. Multi-proxy forwarded header (leftmost IP is origin client)
+    const forwardedFor = req.headers.get('x-forwarded-for');
+    if (forwardedFor && forwardedFor.trim().length > 0) {
+      const firstIp = forwardedFor.split(',')[0].trim();
+      if (firstIp.length > 0) {
+        return firstIp;
+      }
     }
   }
 

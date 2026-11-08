@@ -9,15 +9,13 @@ import { extractRateLimiter, getClientIp } from '@/lib/rate-limiter';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const UrlPayloadSchema = z.object({
-  url: z.string().trim().min(1, 'URL cannot be empty'),
+const ExtractPayloadSchema = z.object({
+  url: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Per-IP Rate Limiting (20 requests per minute per IP, per-instance sliding window)
     const clientIp = getClientIp(req);
-
     const rateLimitResult = extractRateLimiter.check(clientIp);
 
     const rateLimitHeaders = {
@@ -30,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: 'RATE_LIMIT_EXCEEDED',
-          message: `Too many requests from this IP. Maximum ${rateLimitResult.limit} requests per minute allowed. Please try again in ${rateLimitResult.retryAfter} seconds.`,
+          message: `Rate limit exceeded. Maximum ${rateLimitResult.limit} requests per minute allowed.`,
         },
         {
           status: 429,
@@ -43,31 +41,36 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = req.headers.get('content-type') || '';
+    const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
+    const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024; // 2 MB limit for JSON
+
+    if (contentType.includes('application/json') && contentLength > MAX_JSON_BODY_BYTES) {
+      return NextResponse.json(
+        { error: 'PAYLOAD_TOO_LARGE', message: 'JSON body exceeds 2 MB limit.' },
+        { status: 413, headers: rateLimitHeaders }
+      );
+    }
+
     let extractedText = '';
     let source = '';
 
-    // 2. Process Input Based on Content-Type
-    // A. URL JSON Payload: { "url": "https://..." }
     if (contentType.includes('application/json')) {
       const rawBody = await req.json().catch(() => null);
-      const parseResult = UrlPayloadSchema.safeParse(rawBody);
+      const parseResult = ExtractPayloadSchema.safeParse(rawBody);
 
-      if (!parseResult.success) {
+      if (!parseResult.success || !parseResult.data.url) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
-            message: parseResult.error.issues[0]?.message || 'Invalid URL payload format.',
+            message: 'JSON payload must contain a valid "url" field.',
           },
           { status: 400, headers: rateLimitHeaders }
         );
       }
 
-      const { url } = parseResult.data;
-      source = `url:${url}`;
-      extractedText = await extractFromUrl(url);
-    }
-    // B. File Upload via multipart/form-data (.docx, .pdf)
-    else if (contentType.includes('multipart/form-data')) {
+      source = `url:${parseResult.data.url}`;
+      extractedText = await extractFromUrl(parseResult.data.url);
+    } else if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData().catch(() => null);
       if (!formData) {
         return NextResponse.json(
@@ -79,7 +82,7 @@ export async function POST(req: NextRequest) {
       const file = formData.get('file');
       if (!file || !(file instanceof File)) {
         return NextResponse.json(
-          { error: 'NO_FILE', message: 'No file found in the "file" form field.' },
+          { error: 'NO_FILE', message: 'No file found in the "file" field.' },
           { status: 400, headers: rateLimitHeaders }
         );
       }
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             error: 'FILE_TOO_LARGE',
-            message: `File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds maximum allowed limit of 10 MB.`,
+            message: `File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds 10 MB limit.`,
           },
           { status: 413, headers: rateLimitHeaders }
         );
@@ -122,7 +125,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Validate Extracted Text (Minimum 250 words, Language Detection)
     const validation = validateExtractedText(extractedText);
     if (!validation.valid) {
       return NextResponse.json(
@@ -135,45 +137,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Return In-Memory Result: Zero Disk or Log Persistence
     return NextResponse.json(
       {
         success: true,
+        source,
         text: extractedText,
         wordCount: validation.wordCount,
         language: validation.language,
         isEnglish: validation.isEnglish,
         warning: validation.message,
-        source,
       },
-      { headers: rateLimitHeaders }
+      { status: 200, headers: rateLimitHeaders }
     );
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-
-    // Map known extraction errors to proper HTTP statuses
-    if (message.startsWith('SSRF_BLOCKED')) {
-      return NextResponse.json({ error: 'SSRF_BLOCKED', message }, { status: 403 });
-    }
-    if (message.startsWith('REDIRECT_LIMIT_EXCEEDED')) {
-      return NextResponse.json({ error: 'REDIRECT_LIMIT_EXCEEDED', message }, { status: 400 });
-    }
-    if (message.startsWith('NO_TEXT_LAYER')) {
-      return NextResponse.json({ error: 'NO_TEXT_LAYER', message }, { status: 422 });
-    }
-    if (message.startsWith('TIMEOUT')) {
-      return NextResponse.json({ error: 'TIMEOUT', message }, { status: 504 });
-    }
-    if (message.startsWith('SIZE_EXCEEDED')) {
-      return NextResponse.json({ error: 'SIZE_EXCEEDED', message }, { status: 413 });
-    }
-    if (message.startsWith('INVALID_URL') || message.startsWith('UNSUPPORTED_PROTOCOL')) {
-      return NextResponse.json({ error: 'INVALID_URL', message }, { status: 400 });
-    }
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const status = err.message.startsWith('SSRF_BLOCKED')
+      ? 403
+      : err.message.startsWith('FETCH_TIMEOUT') || err.message.startsWith('FILE_TOO_LARGE')
+      ? 422
+      : 500;
 
     return NextResponse.json(
-      { error: 'EXTRACTION_FAILED', message: `Text extraction failed: ${message}` },
-      { status: 500 }
+      {
+        error: 'EXTRACTION_FAILED',
+        message: err.message || 'Text extraction failed.',
+      },
+      { status }
     );
   }
 }

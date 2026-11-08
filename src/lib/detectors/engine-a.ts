@@ -22,24 +22,26 @@ const COMMON_FUNCTION_WORDS = new Set([
 ]);
 
 /**
- * Extracts normalized tokens from text.
+ * Extracts normalized tokens from text using Unicode-aware letter and number matching.
+ * Correctly parses multi-lingual scripts (e.g., Arabic, Latin, Greek, CJK).
  */
 function tokenizeWords(text: string): string[] {
-  return (text.toLowerCase().match(/[a-z0-9]+(?:'[a-z0-9]+)?/g) || []).filter((w) => w.length > 0);
+  return (text.toLowerCase().match(/[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)?/gu) || []).filter((w) => w.length > 0);
 }
 
 /**
  * Computes sentence-length variance (burstiness indicator).
+ * Returns -1 sentinel if text has fewer than 2 sentences, preventing false AI classifications.
  */
 function computeSentenceLengthVariance(text: string): { variance: number; mean: number } {
   const sentences = splitSentences(text);
   if (sentences.length < 2) {
-    return { variance: 0, mean: tokenizeWords(text).length };
+    return { variance: -1, mean: tokenizeWords(text).length };
   }
 
   const lengths = sentences.map((s) => tokenizeWords(s).length).filter((len) => len > 0);
   if (lengths.length < 2) {
-    return { variance: 0, mean: lengths[0] || 0 };
+    return { variance: -1, mean: lengths[0] || 0 };
   }
 
   const mean = lengths.reduce((acc, val) => acc + val, 0) / lengths.length;
@@ -50,16 +52,29 @@ function computeSentenceLengthVariance(text: string): { variance: number; mean: 
 }
 
 /**
- * Computes Type-Token Ratio (TTR: unique words / total words).
+ * Computes Moving-Average Type-Token Ratio (MATTR) with window=50 for length invariance
+ * when words.length > 100, or standard TTR for short passages.
  */
 function computeTypeTokenRatio(words: string[]): number {
   if (words.length === 0) return 0;
-  const unique = new Set(words);
-  return Math.round((unique.size / words.length) * 1000) / 1000;
+  if (words.length <= 100) {
+    const unique = new Set(words);
+    return Math.round((unique.size / words.length) * 1000) / 1000;
+  }
+  const windowSize = 50;
+  let ttrSum = 0;
+  const numWindows = words.length - windowSize + 1;
+  for (let i = 0; i < numWindows; i++) {
+    const windowWords = words.slice(i, i + windowSize);
+    const uniqueInWindow = new Set(windowWords).size;
+    ttrSum += uniqueInWindow / windowSize;
+  }
+  return Math.round((ttrSum / numWindows) * 1000) / 1000;
 }
 
 /**
- * Computes Hapax Legomena rate (words appearing only once / unique words).
+ * Computes length-normalized hapax legomena rate (hapax count normalized per effective document length, capped at 500 words)
+ * to counteract Zipfian vocabulary saturation in longer documents.
  */
 function computeHapaxRate(words: string[]): number {
   if (words.length === 0) return 0;
@@ -73,7 +88,8 @@ function computeHapaxRate(words: string[]): number {
     if (count === 1) hapaxCount++;
   }
 
-  return Math.round((hapaxCount / counts.size) * 1000) / 1000;
+  const effectiveLength = Math.min(words.length, 500);
+  return Math.round((hapaxCount / effectiveLength) * 1000) / 1000;
 }
 
 /**
@@ -119,19 +135,30 @@ function computeFunctionWordDensity(words: string[]): number {
 
 /**
  * Evaluates statistical signals and calculates signal evidence and AI probability contributor.
+ * Uses weighted combination reflecting empirical signal reliability.
  */
 function extractStatisticalSignals(text: string, words: string[]): {
   signals: SignalEvidence[];
   compositeScore: number;
 } {
   const signals: SignalEvidence[] = [];
-  const signalScores: number[] = [];
+  const signalScores: { score: number; weight: number }[] = [];
 
-  // 1. Sentence-length variance (Burstiness)
+  // 1. Sentence-length variance (Burstiness, weight: 1.0 - strongest single stylometric signal)
   const { variance } = computeSentenceLengthVariance(text);
   const vHuman = THRESHOLDS.sentenceLengthVariance.value.humanThreshold;
   const vAi = THRESHOLDS.sentenceLengthVariance.value.aiThreshold;
-  if (variance >= vHuman) {
+  if (variance === -1) {
+    signals.push({
+      name: 'sentence_length_variance',
+      value: -1,
+      direction: 'neutral',
+      reason: 'Insufficient sentence diversity to compute variance (single-sentence document).',
+      benchmark: '>= 2 sentences required to compute burstiness',
+      provisionalScore: 0.5,
+    });
+    signalScores.push({ score: 0.5, weight: 1.0 });
+  } else if (variance >= vHuman) {
     signals.push({
       name: 'sentence_length_variance',
       value: variance,
@@ -140,7 +167,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${vHuman} suggests human variation; < ${vAi} suggests machine pacing`,
       provisionalScore: 0.2,
     });
-    signalScores.push(0.2);
+    signalScores.push({ score: 0.2, weight: 1.0 });
   } else if (variance <= vAi) {
     signals.push({
       name: 'sentence_length_variance',
@@ -150,7 +177,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${vHuman} suggests human variation; < ${vAi} suggests machine pacing`,
       provisionalScore: 0.8,
     });
-    signalScores.push(0.8);
+    signalScores.push({ score: 0.8, weight: 1.0 });
   } else {
     signals.push({
       name: 'sentence_length_variance',
@@ -160,10 +187,10 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${vHuman} suggests human variation; < ${vAi} suggests machine pacing`,
       provisionalScore: 0.5,
     });
-    signalScores.push(0.5);
+    signalScores.push({ score: 0.5, weight: 1.0 });
   }
 
-  // 2. Type-Token Ratio (Lexical Diversity)
+  // 2. Type-Token Ratio (Lexical Diversity with MATTR, weight: 0.8)
   const ttr = computeTypeTokenRatio(words);
   const ttrHuman = THRESHOLDS.typeTokenRatio.value.humanThreshold;
   const ttrAi = THRESHOLDS.typeTokenRatio.value.aiThreshold;
@@ -176,7 +203,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${ttrHuman} suggests diverse vocabulary; < ${ttrAi} suggests repetition`,
       provisionalScore: 0.25,
     });
-    signalScores.push(0.25);
+    signalScores.push({ score: 0.25, weight: 0.8 });
   } else if (ttr <= ttrAi) {
     signals.push({
       name: 'type_token_ratio',
@@ -186,7 +213,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${ttrHuman} suggests diverse vocabulary; < ${ttrAi} suggests repetition`,
       provisionalScore: 0.75,
     });
-    signalScores.push(0.75);
+    signalScores.push({ score: 0.75, weight: 0.8 });
   } else {
     signals.push({
       name: 'type_token_ratio',
@@ -196,10 +223,10 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${ttrHuman} suggests diverse vocabulary; < ${ttrAi} suggests repetition`,
       provisionalScore: 0.5,
     });
-    signalScores.push(0.5);
+    signalScores.push({ score: 0.5, weight: 0.8 });
   }
 
-  // 3. Hapax Rate (Unique single-use words)
+  // 3. Hapax Rate (Length-normalized unique single-use words, weight: 0.8)
   const hapax = computeHapaxRate(words);
   const hHuman = THRESHOLDS.hapaxRate.value.humanThreshold;
   const hAi = THRESHOLDS.hapaxRate.value.aiThreshold;
@@ -212,7 +239,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${hHuman} suggests natural Zipf distribution; < ${hAi} suggests common-token convergence`,
       provisionalScore: 0.25,
     });
-    signalScores.push(0.25);
+    signalScores.push({ score: 0.25, weight: 0.8 });
   } else if (hapax <= hAi) {
     signals.push({
       name: 'hapax_legomena_rate',
@@ -222,7 +249,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${hHuman} suggests natural Zipf distribution; < ${hAi} suggests common-token convergence`,
       provisionalScore: 0.75,
     });
-    signalScores.push(0.75);
+    signalScores.push({ score: 0.75, weight: 0.8 });
   } else {
     signals.push({
       name: 'hapax_legomena_rate',
@@ -232,10 +259,10 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${hHuman} suggests natural Zipf distribution; < ${hAi} suggests common-token convergence`,
       provisionalScore: 0.5,
     });
-    signalScores.push(0.5);
+    signalScores.push({ score: 0.5, weight: 0.8 });
   }
 
-  // 4. N-Gram Repetition (3-gram duplicates)
+  // 4. N-Gram Repetition (3-gram duplicates, weight: 1.0)
   const ngramRep = computeNgramRepetition(words, 3);
   const ngHuman = THRESHOLDS.ngramRepetition.value.humanThreshold;
   const ngAi = THRESHOLDS.ngramRepetition.value.aiThreshold;
@@ -248,7 +275,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `< ${ngHuman} indicates unique phrasing; > ${ngAi} indicates formulaic transitions`,
       provisionalScore: 0.8,
     });
-    signalScores.push(0.8);
+    signalScores.push({ score: 0.8, weight: 1.0 });
   } else if (ngramRep <= ngHuman) {
     signals.push({
       name: 'ngram_repetition',
@@ -258,7 +285,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `< ${ngHuman} indicates unique phrasing; > ${ngAi} indicates formulaic transitions`,
       provisionalScore: 0.2,
     });
-    signalScores.push(0.2);
+    signalScores.push({ score: 0.2, weight: 1.0 });
   } else {
     signals.push({
       name: 'ngram_repetition',
@@ -268,10 +295,10 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `< ${ngHuman} indicates unique phrasing; > ${ngAi} indicates formulaic transitions`,
       provisionalScore: 0.5,
     });
-    signalScores.push(0.5);
+    signalScores.push({ score: 0.5, weight: 1.0 });
   }
 
-  // 5. Punctuation Profile
+  // 5. Punctuation Profile (Diversity & frequency, weight: 0.6)
   const punct = computePunctuationProfile(text, words.length);
   const puncHuman = THRESHOLDS.punctuationDiversity.value.humanThreshold;
   const puncAi = THRESHOLDS.punctuationDiversity.value.aiThreshold;
@@ -284,7 +311,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${puncHuman} suggests diverse rhetorical markers; < ${puncAi} indicates flat punctuation`,
       provisionalScore: 0.3,
     });
-    signalScores.push(0.3);
+    signalScores.push({ score: 0.3, weight: 0.6 });
   } else if (punct.diversity <= puncAi) {
     signals.push({
       name: 'punctuation_profile',
@@ -294,7 +321,7 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${puncHuman} suggests diverse rhetorical markers; < ${puncAi} indicates flat punctuation`,
       provisionalScore: 0.7,
     });
-    signalScores.push(0.7);
+    signalScores.push({ score: 0.7, weight: 0.6 });
   } else {
     signals.push({
       name: 'punctuation_profile',
@@ -304,13 +331,26 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `> ${puncHuman} suggests diverse rhetorical markers; < ${puncAi} indicates flat punctuation`,
       provisionalScore: 0.5,
     });
-    signalScores.push(0.5);
+    signalScores.push({ score: 0.5, weight: 0.6 });
   }
 
-  // 6. Function Word Profile
+  // 6. Function Word Profile (Calibrated disjoint bands, weight: 0.5)
   const fwDensity = computeFunctionWordDensity(words);
+  const roundedFw = Math.round(fwDensity * 100) / 100;
   const aiRange = THRESHOLDS.functionWordDensity.value.aiTypicalRange;
-  if (fwDensity >= aiRange[0] && fwDensity <= aiRange[1]) {
+  const humanRange = THRESHOLDS.functionWordDensity.value.humanRange;
+
+  if (roundedFw < humanRange[0] || roundedFw > humanRange[1]) {
+    signals.push({
+      name: 'function_word_profile',
+      value: fwDensity,
+      direction: 'neutral',
+      reason: `Function word density (${fwDensity}) falls outside typical distribution bands (< ${humanRange[0]} or > ${humanRange[1]}).`,
+      benchmark: `Human range: [${humanRange[0]}, ${humanRange[1]}]; AI typical: [${aiRange[0]}, ${aiRange[1]}]`,
+      provisionalScore: 0.5,
+    });
+    signalScores.push({ score: 0.5, weight: 0.5 });
+  } else if (roundedFw >= aiRange[0] && roundedFw <= aiRange[1]) {
     signals.push({
       name: 'function_word_profile',
       value: fwDensity,
@@ -319,22 +359,25 @@ function extractStatisticalSignals(text: string, words: string[]): {
       benchmark: `Machine text frequently clusters between ${aiRange[0]} and ${aiRange[1]}`,
       provisionalScore: 0.65,
     });
-    signalScores.push(0.65);
+    signalScores.push({ score: 0.65, weight: 0.5 });
   } else {
     signals.push({
       name: 'function_word_profile',
       value: fwDensity,
       direction: 'human',
       reason: `Function word density (${fwDensity}) departs from tight model averages, demonstrating authorial variability.`,
-      benchmark: `Machine text frequently clusters between ${aiRange[0]} and ${aiRange[1]}`,
+      benchmark: `Human range: [${humanRange[0]}, ${humanRange[1]}]; AI typical: [${aiRange[0]}, ${aiRange[1]}]`,
       provisionalScore: 0.35,
     });
-    signalScores.push(0.35);
+    signalScores.push({ score: 0.35, weight: 0.5 });
   }
 
-  // Composite weighted average of signal scores
+  // Composite weighted average of signal scores reflecting empirical signal reliability
+  const totalWeight = signalScores.reduce((acc, s) => acc + s.weight, 0);
   const compositeScore =
-    signalScores.reduce((acc, score) => acc + score, 0) / signalScores.length;
+    totalWeight > 0
+      ? signalScores.reduce((acc, s) => acc + s.score * s.weight, 0) / totalWeight
+      : 0.5;
 
   return { signals, compositeScore: Math.round(compositeScore * 1000) / 1000 };
 }
@@ -410,7 +453,7 @@ export const engineA: DetectorEngine = {
     // 1. Compute document-level signals
     const { signals, compositeScore } = extractStatisticalSignals(text, totalWords);
 
-    // 2. Establish probabilistic range [low, high] with minimum ±0.08 margin of uncertainty
+    // 2. Establish probabilistic range [low, high] with calibrated ±0.08 margin of uncertainty for document level
     const margin = 0.08;
     const scoreLow = Math.max(0.0, Math.round((compositeScore - margin) * 100) / 100);
     const scoreHigh = Math.min(1.0, Math.round((compositeScore + margin) * 100) / 100);
@@ -446,6 +489,7 @@ export const engineA: DetectorEngine = {
       }
 
       const pExtraction = extractStatisticalSignals(p.text, pWords);
+      // Paragraph level uses wider ±0.10 margin due to smaller token sample sizes and higher statistical variance
       const pLow = Math.max(0.0, Math.round((pExtraction.compositeScore - 0.1) * 100) / 100);
       const pHigh = Math.min(1.0, Math.round((pExtraction.compositeScore + 0.1) * 100) / 100);
 

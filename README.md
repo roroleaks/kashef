@@ -7,7 +7,7 @@
 
 ## Overview
 
-Kashef estimates the likelihood that a document was authored or co-authored by an artificial intelligence model. Rather than emitting an opaque verdict, Kashef evaluates multiple linguistic proxy signals (sentence-length variance, vocabulary diversity, n-gram repetition, transition entropy) alongside server-side language model classifiers, presenting transparent probability ranges and per-paragraph heat-maps.
+Kashef estimates the likelihood that a document was authored or co-authored by an artificial intelligence model. Rather than emitting an opaque verdict, Kashef evaluates multiple linguistic proxy signals (sentence-length variance, vocabulary richness, hapax legomena distribution, n-gram repetition, and function-word density) via a transparent multi-signal statistical engine, presenting transparent probability ranges and per-paragraph heat-maps.
 
 ### Key Principles
 * **Probabilistic Integrity**: Detector results are probabilistic indicators that can produce false positives and false negatives. Kashef never presents scores as certain verdicts.

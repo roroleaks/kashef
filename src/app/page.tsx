@@ -64,7 +64,7 @@ export default function Home() {
               Statistical Language Proxies
             </h3>
             <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-              Calculates sentence-length burstiness, transition entropy, repetition index, and vocabulary richness without external leaks.
+              Calculates sentence-length burstiness, lexical diversity, hapax rate, n-gram repetition, and function-word density without external leaks.
             </p>
           </div>
 
@@ -85,10 +85,10 @@ export default function Home() {
               <Download className="w-4 h-4" aria-hidden="true" />
             </div>
             <h3 className="text-sm font-bold text-[var(--color-text)] mb-1">
-              Multi-Format Export
+              Structured JSON Export
             </h3>
             <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-              Following the AIFV export pattern: print-ready PDF, structured JSON, and Markdown summaries with persistent disclaimers.
+              Following the AIFV export pattern: structured JSON assessment reports with persistent caveats and methodological disclaimers.
             </p>
           </div>
         </section>

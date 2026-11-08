@@ -20,13 +20,13 @@ export interface DetectorEngine {
 ### Response Payload Structure (`DetectionResult`)
 ```typescript
 export interface DetectionResult {
-  score: [number, number];       // Overall probability range [low, high], e.g. [68, 82]
-  label: DetectionLabel;         // 'likely_human' | 'mixed_uncertain' | 'likely_ai'
+  score: [number, number];       // Overall probability range [low, high], e.g. [0.68, 0.82]
+  label: DetectionLabel;         // 'Likely human' | 'Mixed / uncertain' | 'Likely AI-assisted' | 'Insufficient evidence'
   confidence: number;            // Normalized confidence level (0.0 to 1.0)
   evidence: SignalEvidence[];    // Global diagnostic signals & benchmarks
   paragraphs: ParagraphAnalysis[]; // Granular per-paragraph scores & signals
-  limitations: string;           // Plain-language limitations notice
-  engineUsed: string;            // Identifier of the executing engine
+  limitations: string[];         // Plain-language limitations notice array
+  engineId?: string;             // Identifier of the executing engine
   timestamp: string;             // ISO-8601 evaluation timestamp
 }
 ```

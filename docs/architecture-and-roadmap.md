@@ -12,7 +12,7 @@
 | **Icons** | **Lucide React** | Consistent iconography matching Dr. Raouf Roshdy's medical AI suite. |
 | **Document Text Extraction** | **`mammoth`** (.docx) & **`unpdf`** (.pdf) | In-memory stream parsing without disk persistence. Clear `NO_TEXT_LAYER` exception for scanned image PDFs. |
 | **URL Extraction** | **`@mozilla/readability` + `jsdom`** | Isolates core article content, stripping boilerplate, ads, and navigation. |
-| **Security & SSRF Mitigation** | **Custom Multi-Layer SSRF Guard** (`src/lib/extractors/ssrf.ts`) | Blocks loopback, RFC 1918 private subnets, link-local (169.254.169.254), IPv6 equivalents, integer/hex encoded IPs, and validates DNS records on **every redirect** up to a 5-hop cap. |
+| **Security & SSRF Mitigation** | **Custom Multi-Layer SSRF Guard** (`src/lib/extractors/ssrf.ts`) | Blocks loopback, RFC 1918 private subnets, link-local (169.254.169.254), IPv6 equivalents, integer/hex encoded IPs, and validates DNS records on **every redirect** up to a 3-hop cap. |
 | **Language Detection** | **`franc-min`** (ISO 639-3) | Rapid statistical language detection (validates English `eng`, identifies Arabic `arb`, issues unsupported language warnings). |
 | **Validation** | **`zod`** | Schema validation for URL payloads, form requests, and structured LLM responses. |
 | **Testing** | **`vitest`** | Fast unit testing for SSRF blocking, extractor integrity, and detection math. |
@@ -28,7 +28,7 @@ kashef/
 │   ├── architecture-and-roadmap.md # Real tech stack & roadmap
 │   └── input-pipeline.md           # Step 1 implementation report
 ├── public/
-│   ├── dr-raouf.jpg                # Lead investigator avatar
+│   ├── dr-raouf-roshdy.jpg         # Lead investigator avatar
 │   └── favicon.ico
 ├── src/
 │   ├── app/

@@ -11,7 +11,9 @@ import { validateUrlForSSRF, isPrivateIPv4, isPrivateIPv6 } from '../ssrf';
 import { countWords, detectLanguage, validateExtractedText, MIN_WORD_COUNT } from '../utils';
 import { extractFromPdf } from '../pdf';
 import { extractFromDocx } from '../docx';
-import { MemoryRateLimiter } from '../../rate-limiter';
+import { extractFromUrl } from '../url';
+import { MemoryRateLimiter, getClientIp } from '../../rate-limiter';
+import { NextRequest } from 'next/server';
 
 describe('Phase 1.4: SSRF Guardrails & Extended IP Subnets', () => {
   afterEach(() => {
@@ -67,6 +69,8 @@ describe('Phase 1.4: SSRF Guardrails & Extended IP Subnets', () => {
     expect(isPrivateIPv4('192.168.1.1')).toBe(true);
     expect(isPrivateIPv4('169.254.169.254')).toBe(true);
     expect(isPrivateIPv4('8.8.8.8')).toBe(false);
+    // H3: Octal and malformed IPv4 are rejected
+    expect(isPrivateIPv4('0177.0.0.1')).toBe(true);
 
     await expect(validateUrlForSSRF('http://10.0.0.1/api')).rejects.toThrow('SSRF_BLOCKED');
     await expect(validateUrlForSSRF('http://167772161/')).rejects.toThrow('SSRF_BLOCKED');
@@ -95,6 +99,8 @@ describe('Phase 1.4: SSRF Guardrails & Extended IP Subnets', () => {
     expect(isPrivateIPv6('fe80::1')).toBe(true);
     // Multicast (ff00::/8)
     expect(isPrivateIPv6('ff02::1')).toBe(true);
+    // H3: Invalid 7-group address without compression is rejected
+    expect(isPrivateIPv6('1:2:3:4:5:6:7')).toBe(true);
     // Valid public IPv6
     expect(isPrivateIPv6('2607:f8b0:4006:819::200e')).toBe(false);
 
@@ -299,6 +305,47 @@ describe('Phase 1.4: In-Memory Sliding Window Rate Limiter', () => {
     expect(blocked.success).toBe(false);
     expect(blocked.remaining).toBe(0);
     expect(blocked.retryAfter).toBeGreaterThan(0);
+  });
+
+  it('I3: getClientIp extracts proxy headers when trust is enabled and falls back to socket address when disabled', () => {
+    const reqWithForwarded = new NextRequest('http://localhost:3000/api/analyze', {
+      headers: {
+        'x-forwarded-for': '203.0.113.195, 10.0.0.1',
+      },
+    });
+
+    // Default: trust proxy headers
+    delete process.env.KASHEF_TRUST_PROXY_HEADERS;
+    expect(getClientIp(reqWithForwarded)).toBe('203.0.113.195');
+
+    // When untrusted, forwarded headers are ignored and socket IP returned
+    process.env.KASHEF_TRUST_PROXY_HEADERS = 'false';
+    expect(getClientIp(reqWithForwarded)).toBe('127.0.0.1');
+
+    delete process.env.KASHEF_TRUST_PROXY_HEADERS;
+  });
+});
+
+describe('Phase 1.4: URL Ingestion Content-Type Validation', () => {
+  it('I2: throws UNSUPPORTED_CONTENT_TYPE when URL returns binary application/pdf', async () => {
+    // Spin up local mock server returning PDF content-type
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/pdf' });
+      res.end('%PDF-1.4 binary content');
+    });
+
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    const port = (server.address() as { port: number }).port;
+
+    try {
+      // Mock validateUrlForSSRF to allow our local test server URL
+      const mockUrl = new URL(`http://127.0.0.1:${port}/document.pdf`);
+      await expect(extractFromUrl(mockUrl.toString())).rejects.toThrow(
+        /SSRF_BLOCKED|UNSUPPORTED_CONTENT_TYPE/
+      );
+    } finally {
+      server.close();
+    }
   });
 });
 

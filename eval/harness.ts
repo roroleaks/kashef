@@ -17,20 +17,23 @@ export interface EvaluationMetrics {
   syntheticCount: number;
   humanCount: number;
   mixedCount: number;
+  insufficientCount: number;
+  insufficientRate: number;
   accuracy: number;
   accuracyConfidenceInterval: [number, number]; // 95% Wilson score interval
-  falsePositiveRate: number; // Human classified as AI
+  falsePositiveRate: number; // Human classified as non-human (ai, mixed, or insufficient)
   falsePositiveCount: number;
-  falseNegativeRate: number; // AI classified as Human
+  falseNegativeRate: number; // AI classified as non-ai (human, mixed, or insufficient)
   falseNegativeCount: number;
   isSmallSampleSize: boolean;
+  isReliable: boolean;
   reliabilityCaveat: string;
 }
 
 export interface SampleEvaluationResult {
   sample: LabeledSample;
   result: DetectionResult;
-  predictedClass: 'human' | 'ai' | 'mixed';
+  predictedClass: 'human' | 'ai' | 'mixed' | 'insufficient';
   isCorrect: boolean;
 }
 
@@ -60,11 +63,13 @@ function computeWilsonInterval(successes: number, total: number): [number, numbe
 
 /**
  * Maps DetectionLabel to evaluation ground-truth class.
+ * Differentiates 'Insufficient evidence' from 'mixed'.
  */
-function labelToClass(label: string): 'human' | 'ai' | 'mixed' {
+function labelToClass(label: string): 'human' | 'ai' | 'mixed' | 'insufficient' {
   if (label === 'Likely human') return 'human';
   if (label === 'Likely AI-assisted') return 'ai';
-  return 'mixed';
+  if (label === 'Mixed / uncertain') return 'mixed';
+  return 'insufficient';
 }
 
 /**
@@ -98,6 +103,7 @@ export async function evaluateEngine(
   const details: SampleEvaluationResult[] = [];
 
   let correctCount = 0;
+  let insufficientCount = 0;
   let falsePositiveCount = 0;
   let totalHumanSamples = 0;
   let falseNegativeCount = 0;
@@ -116,17 +122,21 @@ export async function evaluateEngine(
     const predicted = labelToClass(result.label);
     const isCorrect = predicted === sample.label;
 
+    if (predicted === 'insufficient') {
+      insufficientCount++;
+    }
+
     if (isCorrect) correctCount++;
 
     if (sample.label === 'human') {
       totalHumanSamples++;
-      if (predicted === 'ai') {
+      if (predicted !== 'human') {
         falsePositiveCount++;
       }
     }
 
     if (sample.label === 'ai') {
-      if (predicted === 'human') {
+      if (predicted !== 'ai') {
         falseNegativeCount++;
       }
     }
@@ -141,19 +151,24 @@ export async function evaluateEngine(
 
   const total = samples.length;
   const accuracy = total > 0 ? Math.round((correctCount / total) * 1000) / 1000 : 0;
+  const insufficientRate = total > 0 ? Math.round((insufficientCount / total) * 1000) / 1000 : 0;
   const fpr = totalHumanSamples > 0 ? Math.round((falsePositiveCount / totalHumanSamples) * 1000) / 1000 : 0;
   const fnr = totalAiSamples > 0 ? Math.round((falseNegativeCount / totalAiSamples) * 1000) / 1000 : 0;
 
   const isSmallSampleSize = total < 30;
-  const reliabilityCaveat = isSmallSampleSize
-    ? `CAVEAT: Small sample size (N = ${total} < 30). Performance metrics and confidence intervals are not statistically reliable. Synthetic samples must not be interpreted as real-world clinical accuracy.`
-    : 'Statistical metrics calculated with sample size N >= 30.';
+  const isReliable = !isSmallSampleSize && insufficientCount <= total / 2;
+
+  const reliabilityCaveat = !isReliable
+    ? `CAVEAT: Small sample size (N = ${total} < 30) or insufficient rate (${(insufficientRate * 100).toFixed(1)}%). Performance metrics and confidence intervals are provisional and not statistically reliable for production or forensic benchmarking.`
+    : 'Statistical metrics calculated with sample size N >= 30 and sufficient coverage.';
 
   const metrics: EvaluationMetrics = {
     sampleCount: total,
     syntheticCount,
     humanCount,
     mixedCount,
+    insufficientCount,
+    insufficientRate,
     accuracy,
     accuracyConfidenceInterval: computeWilsonInterval(correctCount, total),
     falsePositiveRate: fpr,
@@ -161,6 +176,7 @@ export async function evaluateEngine(
     falseNegativeRate: fnr,
     falseNegativeCount,
     isSmallSampleSize,
+    isReliable,
     reliabilityCaveat,
   };
 

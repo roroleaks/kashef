@@ -40,7 +40,7 @@ export const THRESHOLDS = {
       'Human writers mix short declarative sentences with complex clauses. LLMs default to consistent sentence length with low standard deviation.',
   } as ProvisionalThreshold<{ humanThreshold: number; aiThreshold: number }>,
 
-  // 2. Type-Token Ratio (TTR: Unique words / Total words)
+  // 2. Type-Token Ratio (TTR: Unique words / Total words, with MATTR window=50 for length invariance)
   typeTokenRatio: {
     value: {
       humanThreshold: 0.52, // Rich lexical diversity
@@ -48,10 +48,10 @@ export const THRESHOLDS = {
     },
     status: 'provisional',
     rationale:
-      'Repetitive vocabulary selection is characteristic of machine text optimized for average token probability.',
+      'Repetitive vocabulary selection is characteristic of machine text optimized for average token probability. Normalized via Moving-Average TTR (MATTR window=50) for documents > 100 words to prevent length-induced Heaps law saturation.',
   } as ProvisionalThreshold<{ humanThreshold: number; aiThreshold: number }>,
 
-  // 3. Hapax Rate (Proportion of unique words occurring exactly once)
+  // 3. Hapax Rate (Proportion of unique words occurring exactly once, length-normalized)
   hapaxRate: {
     value: {
       humanThreshold: 0.48, // High single-occurrence word count
@@ -59,7 +59,7 @@ export const THRESHOLDS = {
     },
     status: 'provisional',
     rationale:
-      'Natural human writing introduces unique domain-specific synonyms and creative word choices obeying Zipf’s law.',
+      'Natural human writing introduces unique domain-specific synonyms and creative word choices obeying Zipf’s law. Normalized per effective document length (capped at 500 words) to avoid false penalties on long formal texts.',
   } as ProvisionalThreshold<{ humanThreshold: number; aiThreshold: number }>,
 
   // 4. Repeated N-Grams (Repeated 3-grams / total 3-grams)

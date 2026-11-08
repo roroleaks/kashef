@@ -252,4 +252,100 @@ describe('Step 2: Multi-Engine Combiner & Range Widening', () => {
     expect(combined.paragraphs[0].score[1]).toBe(0.8);
     expect(combined.paragraphs[0].label).toBe('Mixed / uncertain');
   });
+
+  // GROUP E: Combiner Edge Case Fixes
+  it('E1: does not collapse confident engine output when another engine returns Insufficient evidence', () => {
+    const insufficientResult: DetectionResult = {
+      score: [0.0, 1.0],
+      label: 'Insufficient evidence',
+      confidence: 0.1,
+      evidence: [
+        {
+          name: 'document_length',
+          value: 40,
+          direction: 'neutral',
+          reason: 'Document contains only 40 words.',
+        },
+      ],
+      paragraphs: [],
+      limitations: ['Document is too short.'],
+      engineId: 'engine-c-short',
+      timestamp: new Date().toISOString(),
+    };
+
+    const combined = combineResults([insufficientResult, concordantResultA]);
+    expect(() => DetectionResultSchema.parse(combined)).not.toThrow();
+
+    // The confident AI verdict must NOT be discarded
+    expect(combined.label).toBe('Likely AI-assisted');
+    expect(combined.score[0]).toBe(0.7);
+    expect(combined.score[1]).toBe(0.85);
+
+    // Limitation note should mention that 1 engine was excluded
+    expect(
+      combined.limitations.some((lim) =>
+        lim.includes('returned insufficient evidence and were excluded')
+      )
+    ).toBe(true);
+  });
+
+  it('E2: adds limitation warning when engines produce differing paragraph segmentations', () => {
+    const multiParaResult: DetectionResult = {
+      ...concordantResultB,
+      paragraphs: [
+        concordantResultB.paragraphs[0],
+        {
+          text: 'Second paragraph.',
+          index: 1,
+          wordCount: 20,
+          score: [0.7, 0.85],
+          label: 'Likely AI-assisted',
+          signals: [],
+        },
+        {
+          text: 'Third paragraph.',
+          index: 2,
+          wordCount: 22,
+          score: [0.7, 0.85],
+          label: 'Likely AI-assisted',
+          signals: [],
+        },
+      ],
+    };
+
+    const combined = combineResults([concordantResultA, multiParaResult]);
+    expect(
+      combined.limitations.some((lim) =>
+        lim.includes('Engines produced different paragraph segmentations')
+      )
+    ).toBe(true);
+  });
+
+  it('E3: preserves signal evidence across distinct engines with same signal name', () => {
+    const engineARep: DetectionResult = {
+      ...concordantResultA,
+      evidence: [
+        {
+          name: 'ngram_repetition',
+          value: 0.15,
+          direction: 'ai',
+          reason: 'Elevated 3-gram repetition from Engine A',
+        },
+      ],
+    };
+    const engineBRep: DetectionResult = {
+      ...concordantResultB,
+      evidence: [
+        {
+          name: 'ngram_repetition',
+          value: 0.08,
+          direction: 'ai',
+          reason: 'Moderate repetition from Engine B',
+        },
+      ],
+    };
+
+    const combined = combineResults([engineARep, engineBRep]);
+    expect(combined.evidence.length).toBe(2);
+  });
 });

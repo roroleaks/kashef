@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   RotateCcw,
   ShieldAlert,
+  Download,
 } from 'lucide-react';
 import type { DetectionResult } from '@/lib/detectors/types';
 
@@ -146,6 +147,19 @@ export const InputTabs: React.FC = () => {
 
     setLoadingMessage('Evaluating statistical linguistic proxies...');
     submitAnalysis(JSON.stringify({ text: trimmed }), false);
+  };
+
+  const handleDownloadJson = () => {
+    if (!result) return;
+    const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kashef-report-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const analysis = result?.analysis;
@@ -428,14 +442,25 @@ export const InputTabs: React.FC = () => {
               <span>•</span>
               <span className="uppercase">{result.language || 'eng'}</span>
             </div>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] hover:bg-[var(--color-primary-light)] text-xs font-semibold text-[var(--color-text)] transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              New Analysis
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadJson}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] hover:bg-[var(--color-primary-light)] text-xs font-semibold text-[var(--color-text)] transition-colors cursor-pointer"
+                title="Download structured JSON assessment report"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export JSON
+              </button>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] hover:bg-[var(--color-primary-light)] text-xs font-semibold text-[var(--color-text)] transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                New Analysis
+              </button>
+            </div>
           </div>
 
           {/* Primary Result Card */}

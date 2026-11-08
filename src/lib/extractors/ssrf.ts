@@ -10,8 +10,14 @@ export interface ValidatedTarget {
 /**
  * Checks if an IPv4 address belongs to private, loopback, link-local, carrier-grade NAT,
  * benchmark, multicast, broadcast, or reserved ranges.
+ * Expects normalized dotted-decimal format; rejects octal/hex or malformed structures.
  */
 export function isPrivateIPv4(ip: string): boolean {
+  // Reject octal forms (e.g. 0177.0.0.1), hex, non-decimal strings, or leading zeros
+  if (!/^(?:[1-9]\d{0,2}|0)\.(?:[1-9]\d{0,2}|0)\.(?:[1-9]\d{0,2}|0)\.(?:[1-9]\d{0,2}|0)$/.test(ip)) {
+    return true;
+  }
+
   const parts = ip.split('.').map((p) => parseInt(p, 10));
   if (parts.length !== 4 || parts.some((p) => isNaN(p) || p < 0 || p > 255)) {
     return true; // Malformed or abnormal IPv4 is rejected
@@ -76,6 +82,12 @@ function parseIPv6Words(ip: string): number[] | null {
 
   const left = parts[0] ? parts[0].split(':') : [];
   const right = parts.length === 2 && parts[1] ? parts[1].split(':') : [];
+
+  // When no '::' compression is present, IPv6 must have exactly 8 groups
+  if (parts.length === 1 && left.length !== 8) {
+    return null;
+  }
+
   const missing = 8 - (left.length + right.length);
   if (missing < 0) return null;
 

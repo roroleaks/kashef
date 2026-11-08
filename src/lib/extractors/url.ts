@@ -167,6 +167,17 @@ export async function extractFromUrl(initialUrl: string): Promise<string> {
     throw new Error('NO_RESPONSE: Failed to receive response from server.');
   }
 
+  // Validate Content-Type: enforce text/html, application/xhtml+xml, or text/plain
+  const ct = (finalResponse.headers['content-type'] || '').toLowerCase();
+  if (
+    ct &&
+    !ct.includes('text/html') &&
+    !ct.includes('application/xhtml+xml') &&
+    !ct.includes('text/plain')
+  ) {
+    throw new Error(`UNSUPPORTED_CONTENT_TYPE: URL returned ${ct}, expected text/html or text/plain.`);
+  }
+
   const html = finalResponse.body.toString('utf-8');
 
   // Extract article content with Readability & jsdom

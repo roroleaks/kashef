@@ -44,6 +44,16 @@ export async function POST(req: NextRequest) {
     }
 
     const contentType = req.headers.get('content-type') || '';
+    const contentLength = parseInt(req.headers.get('content-length') || '0', 10);
+    const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024; // 2 MB limit for JSON text payloads
+
+    if (contentType.includes('application/json') && contentLength > MAX_JSON_BODY_BYTES) {
+      return NextResponse.json(
+        { error: 'PAYLOAD_TOO_LARGE', message: 'JSON body exceeds 2 MB limit.' },
+        { status: 413, headers: rateLimitHeaders }
+      );
+    }
+
     let extractedText = '';
     let source = '';
 

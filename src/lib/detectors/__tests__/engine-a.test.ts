@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { engineA } from '../engine-a';
 import { DetectionResultSchema } from '../types';
+import { splitSentences, splitParagraphs } from '../utils';
 
 describe('Step 3: Engine A — Statistical Signals & Heuristics', () => {
   const shortText = 'This is a short sample document with fewer than two hundred and fifty words.';
@@ -37,6 +38,11 @@ describe('Step 3: Engine A — Statistical Signals & Heuristics', () => {
     Healthcare stakeholders must remain vigilant in auditing machine learning outputs across diverse patient populations.
   `.repeat(2); // > 250 words
 
+  // 260+ words Arabic medical document
+  const arabicParagraph =
+    'تعتبر إدارة ارتفاع ضغط الدم أثناء الحمل من أهم التحديات السريرية التي تواجه أطباء النساء والتوليد في مختلف أنحاء العالم. يتطلب التشخيص الدقيق مراقبة مستمرة للعلامات الحيوية وتحديد وظائف الكبد والكلى بدقة متناهية لتفادي حدوث مضاعفات خطيرة للأم والجنين. وقد أثبتت الدراسات الحديثة أن استخدام كبريتات المغنيسيوم يساهم بشكل فعال في الوقاية من التشنجات النفاسية لدى الحوامل المصابات بحالات شديدة من تسمم الحمل. كما أن التدخل المبكر لتنظيم ضغط الدم يقلل من مخاطر النزيف الدماغي والانفصال المبكر للمشيمة، مما يضمن سلامة الأم والمولود ويحسن النتائج السريرية على المدى الطويل في جميع المراكز الطبية المتخصصة.';
+  const arabicLongDoc = `${arabicParagraph} ${arabicParagraph} ${arabicParagraph}`; // ~270 words
+
   it('rejects documents with fewer than 250 words returning Insufficient evidence', async () => {
     const result = await engineA.analyze(shortText);
     expect(() => DetectionResultSchema.parse(result)).not.toThrow();
@@ -53,7 +59,6 @@ describe('Step 3: Engine A — Statistical Signals & Heuristics', () => {
     const result = await engineA.analyze(humanProse);
     expect(() => DetectionResultSchema.parse(result)).not.toThrow();
 
-    // Verify 6 statistical signals are evaluated
     const signalNames = result.evidence.map((s) => s.name);
     expect(signalNames).toContain('sentence_length_variance');
     expect(signalNames).toContain('type_token_ratio');
@@ -62,7 +67,6 @@ describe('Step 3: Engine A — Statistical Signals & Heuristics', () => {
     expect(signalNames).toContain('punctuation_profile');
     expect(signalNames).toContain('function_word_profile');
 
-    // Every signal has raw value, direction, and plain-language reason
     for (const sig of result.evidence) {
       expect(sig.value).toBeDefined();
       expect(['human', 'ai', 'neutral']).toContain(sig.direction);
@@ -94,5 +98,103 @@ describe('Step 3: Engine A — Statistical Signals & Heuristics', () => {
     const result = await engineA.analyze(aiProse);
     expect(['Likely AI-assisted', 'Mixed / uncertain']).toContain(result.label);
     expect(result.score[1]).toBeGreaterThanOrEqual(0.55);
+  });
+
+  // GROUP A: Unicode Tokenizer Tests
+  it('A2: parses 260+ word Arabic document without dropping tokens and returns active analysis', async () => {
+    const result = await engineA.analyze(arabicLongDoc);
+    expect(() => DetectionResultSchema.parse(result)).not.toThrow();
+    // Must NOT be treated as 0 words or insufficient text
+    expect(result.label).not.toBe('Insufficient evidence');
+    const docLengthSignal = result.evidence.find((e) => e.name === 'document_length');
+    expect(docLengthSignal).toBeUndefined(); // Passes word count threshold
+    expect(result.score[0]).toBeGreaterThanOrEqual(0);
+    expect(result.score[1]).toBeLessThanOrEqual(1);
+  });
+
+  it('A3: retains Arabic tokens in mixed English+Arabic document (> 300 words)', async () => {
+    const mixedDoc = `${humanProse} بالإضافة إلى ذلك فإن التشخيص السريري الدقيق يمثل ركنا أساسيا في الرعاية الصحية الحديثة.`;
+    const result = await engineA.analyze(mixedDoc);
+    expect(() => DetectionResultSchema.parse(result)).not.toThrow();
+    expect(result.label).not.toBe('Insufficient evidence');
+  });
+
+  // GROUP B: Sentence Splitter Tests
+  it('B1: correctly splits sentence abbreviations and quote boundaries', () => {
+    // 1. Saint and Mount abbreviations
+    const s1 = splitSentences('St. Louis is a city. Mt. Everest is a mountain.');
+    expect(s1).toEqual(['St. Louis is a city.', 'Mt. Everest is a mountain.']);
+
+    // 2. Multi-dot abbreviations protected (expected: 1 sentence, not split after abbreviations)
+    const s2 = splitSentences('e.g. apples, oranges. i.e. citrus fruits.');
+    expect(s2).toEqual(['e.g. apples, oranges. i.e. citrus fruits.']);
+
+    // 3. Period inside closing quotes
+    const s3 = splitSentences('He said "hello." Then he left.');
+    expect(s3).toEqual(['He said "hello."', 'Then he left.']);
+
+    // 4. Sentence ending with single capital letter grade
+    const s4 = splitSentences('She got an A. The next day.');
+    expect(s4).toEqual(['She got an A.', 'The next day.']);
+
+    // 5. Junior and Senior
+    const s5 = splitSentences('Jr. Smith arrived. Sr. Jones left.');
+    expect(s5).toEqual(['Jr. Smith arrived.', 'Sr. Jones left.']);
+
+    // 6. Latin scholarly abbreviations (etc., cf.)
+    const s6 = splitSentences('etc. and so on. cf. the reference.');
+    expect(s6).toEqual(['etc. and so on.', 'cf. the reference.']);
+
+    // 7. Corporate designations (Inc., Ltd.)
+    const s7 = splitSentences('Inc. announced profits. Ltd. closed.');
+    expect(s7).toEqual(['Inc. announced profits.', 'Ltd. closed.']);
+
+    // 8. Decimal numbers preserved without breaking sentence boundary
+    const s8 = splitSentences('The p-value was 0.04. Significant!');
+    expect(s8).toEqual(['The p-value was 0.04.', 'Significant!']);
+  });
+
+  // GROUP C: Paragraph Splitter Fallback
+  it('C2: splits single newline separated lines into separate paragraphs', () => {
+    const paras = splitParagraphs('Short line one.\nShort line two.\nShort line three.');
+    expect(paras.length).toBe(3);
+    expect(paras[0].text).toBe('Short line one.');
+    expect(paras[1].text).toBe('Short line two.');
+    expect(paras[2].text).toBe('Short line three.');
+  });
+
+  // GROUP D: Engine A Logic Fixes
+  it('D1: single-sentence document (>250 words) returns neutral variance signal instead of false AI classification', async () => {
+    // A single continuous sentence with 260 words
+    const words = Array(260).fill('clinical').join(' ') + '.';
+    const result = await engineA.analyze(words);
+    const varSignal = result.evidence.find((e) => e.name === 'sentence_length_variance');
+    expect(varSignal).toBeDefined();
+    expect(varSignal?.direction).toBe('neutral');
+    expect(varSignal?.provisionalScore).toBe(0.5);
+    expect(varSignal?.reason).toContain('Insufficient sentence diversity');
+  });
+
+  it('D2: function word density at 0.419 and 0.421 evaluate consistently', async () => {
+    // Both 0.419 and 0.421 round to 0.42 and land in the typical AI range
+    const fwWordsA = Array(419).fill('the');
+    const contentWordsA = Array(581).fill('hospital');
+    const docA = [...fwWordsA, ...contentWordsA].join(' ') + '.';
+
+    const fwWordsB = Array(421).fill('the');
+    const contentWordsB = Array(579).fill('hospital');
+    const docB = [...fwWordsB, ...contentWordsB].join(' ') + '.';
+
+    const resA = await engineA.analyze(docA);
+    const resB = await engineA.analyze(docB);
+
+    const fwSigA = resA.evidence.find((e) => e.name === 'function_word_profile');
+    const fwSigB = resB.evidence.find((e) => e.name === 'function_word_profile');
+
+    expect(fwSigA?.value).toBe(0.419);
+    expect(fwSigB?.value).toBe(0.421);
+    expect(fwSigA?.direction).toBe('ai');
+    expect(fwSigB?.direction).toBe('ai');
+    expect(fwSigA?.direction).toBe(fwSigB?.direction);
   });
 });

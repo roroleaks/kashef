@@ -16,7 +16,9 @@ describe('Evaluation Harness (/eval)', () => {
       expect(sample.source).toBeDefined();
       expect(sample.notes).toBeDefined();
       expect(typeof sample.text).toBe('string');
-      expect(sample.text.length).toBeGreaterThan(100);
+      // F1 requirement: every benchmark sample must meet the 250 word floor
+      const wordCount = sample.text.trim().split(/\s+/).filter(Boolean).length;
+      expect(wordCount).toBeGreaterThanOrEqual(250);
     }
   });
 
@@ -36,16 +38,19 @@ describe('Evaluation Harness (/eval)', () => {
     // Rates
     expect(report.metrics.falsePositiveRate).toBeGreaterThanOrEqual(0);
     expect(report.metrics.falseNegativeRate).toBeGreaterThanOrEqual(0);
+    expect(report.metrics.insufficientCount).toBeGreaterThanOrEqual(0);
+    expect(report.metrics.insufficientRate).toBeGreaterThanOrEqual(0);
 
     // Small sample size caveat flag
     expect(report.metrics.isSmallSampleSize).toBe(true);
+    expect(report.metrics.isReliable).toBe(false);
     expect(report.metrics.reliabilityCaveat).toContain('Small sample size');
     expect(report.metrics.reliabilityCaveat).toContain('not statistically reliable');
 
     // Details breakdown
     expect(report.details.length).toBe(samples.length);
     for (const d of report.details) {
-      expect(['human', 'ai', 'mixed']).toContain(d.predictedClass);
+      expect(['human', 'ai', 'mixed', 'insufficient']).toContain(d.predictedClass);
       expect(typeof d.isCorrect).toBe('boolean');
     }
   });
