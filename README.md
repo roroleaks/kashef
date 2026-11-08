@@ -50,7 +50,17 @@ npm run build
 
 ---
 
-## Input Pipeline (`POST /api/extract`)
+## Detection Engines
+
+Kashef features a modular multi-engine architecture operating behind a unified `analyze(text)` contract:
+
+* **Engine A — Statistical Linguistic Proxies (`src/lib/detectors/engine-a.ts`)**: Runs in-memory deterministic stylometry evaluating sentence-length burstiness, Moving-Average Type-Token Ratio (MATTR), length-normalized hapax legomena distribution, n-gram repetition, punctuation diversity, and function-word density. Operates with zero network requests or API keys.
+* **Engine B — Language Model Evaluation (`src/lib/detectors/engine-b.ts`)**: Optional server-side evaluator analyzing semantic predictability, formulaic rhetorical structures, and idiosyncratic voice using enterprise zero-data-retention APIs (Google Gemini or OpenAI-compatible endpoints). If unconfigured, Kashef falls back to Engine A.
+* **Multi-Engine Consensus Combiner (`src/lib/detectors/combiner.ts`)**: Merges outputs across engines, widening the uncertainty envelope and flagging limitations when engines diverge.
+
+---
+
+## Input Pipeline (`POST /api/extract` & `POST /api/analyze`)
 * **File Upload**: Accepts Microsoft Word (`.docx`) and Adobe PDF (`.pdf`) up to 10 MB.
 * **URL Extraction**: Server-side article extraction via `@mozilla/readability` and `jsdom` with 8s timeout and 10 MB limit.
 * **Minimum Length**: Requires at least 250 words for reliable statistical significance.

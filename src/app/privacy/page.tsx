@@ -80,9 +80,9 @@ export default function PrivacyPage() {
             </section>
 
             <section className="space-y-2">
-              <h2 className="text-base font-bold text-[var(--color-text)]">2. Zero External Model Calls</h2>
+              <h2 className="text-base font-bold text-[var(--color-text)]">2. Detection Engine Architecture & External Model Calls</h2>
               <p>
-                Kashef does NOT call any external LLM classifier APIs (e.g. Gemini, OpenAI, Claude). All statistical stylometry is performed strictly in-process by the local heuristics engine. If external classifiers are integrated in a future phase, this section will be updated with explicit zero-data-retention disclosure.
+                Kashef operates by default via Engine A, which performs purely in-process deterministic statistical stylometry with zero external API calls. When server administrators configure Engine B by providing enterprise API credentials (Google Gemini or OpenAI), requests are dispatched strictly server-side using zero-data-retention endpoints with temporary in-memory payloads. Uploaded documents and extracted texts are never retained on disk, logged, or utilized to train artificial intelligence models.
               </p>
             </section>
 

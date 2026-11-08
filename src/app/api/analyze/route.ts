@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 const AnalyzePayloadSchema = z.object({
   text: z.string().optional(),
   url: z.string().optional(),
+  engine: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
 
     let extractedText = '';
     let source = '';
+    let requestedEngine: string | undefined = req.nextUrl.searchParams.get('engine') || undefined;
 
     // 2. Process Input Based on Content-Type
     // A. JSON Payload: { "url": "..." } or { "text": "..." }
@@ -71,6 +73,10 @@ export async function POST(req: NextRequest) {
           },
           { status: 400, headers: rateLimitHeaders }
         );
+      }
+
+      if (parseResult.data.engine) {
+        requestedEngine = parseResult.data.engine;
       }
 
       if (parseResult.data.url) {
@@ -158,8 +164,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Run Modular Detection Engine (Engine A — Statistical Proxies)
-    const analysis = await analyze(extractedText);
+    // 4. Run Modular Detection Engine (Engine A statistical and/or Engine B LLM evaluation)
+    const analysis = await analyze(extractedText, requestedEngine);
 
     // 5. Return In-Memory Result: Zero Disk or Log Persistence
     return NextResponse.json(

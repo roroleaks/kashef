@@ -74,14 +74,14 @@ kashef/
 - [x] **1.5 Unit Test Suite**: Comprehensive vitest coverage for extraction, SSRF, redirects, and limits.
 
 ### Phase 2: Modular Detection Engines (Behind One Interface)
-- [ ] **2.1 Detector Contract**: Strict TypeScript interface `analyze(text: string): Promise<DetectionResult>`.
-- [ ] **2.2 Engine A (Statistical Signals)**: Sentence-length variance, burstiness proxy, vocabulary diversity (TTR), punctuation profile, and n-gram repetition.
-- [ ] **2.3 Engine B (Server-Side LLM Classifier)**: Server-side API key isolation (`.env.local`), structured JSON via zod, fallback to Engine A, per-IP rate limiting.
-- [ ] **2.4 Range & Confidence Combiner**: Produces probabilistic likelihood ranges, confidence scoring, and limitations notice.
+- [x] **2.1 Detector Contract**: Strict TypeScript interface `analyze(text: string): Promise<DetectionResult>`.
+- [x] **2.2 Engine A (Statistical Signals)**: Sentence-length variance, burstiness proxy, vocabulary diversity (MATTR), hapax legomena, punctuation profile, and function-word density.
+- [x] **2.3 Engine B (Server-Side LLM Classifier)**: Server-side API key isolation (`.env.local`), structured JSON via zod, fallback to Engine A, per-IP rate limiting.
+- [x] **2.4 Range & Confidence Combiner**: Produces probabilistic likelihood ranges, confidence scoring, and limitations notice.
 
 ### Phase 3: Evaluation Harness & Benchmark Suite
-- [ ] **3.1 Evaluation Dataset**: Curated benchmark with labeled human text, pure AI text, blended/edited AI, and non-native English.
-- [ ] **3.2 Metrics Harness**: Measures accuracy, false-positive rate, and false-negative rate per engine without inflating claims.
+- [x] **3.1 Evaluation Dataset**: Curated benchmark with labeled human text, pure AI text, and blended/edited AI.
+- [x] **3.2 Metrics Harness**: Measures accuracy, false-positive rate, and false-negative rate per engine without inflating claims.
 - [ ] **3.3 "About the Method" Page**: Public documentation of measured benchmark figures.
 
 ### Phase 4: Results Visualization & Multi-Format Export

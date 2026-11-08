@@ -51,7 +51,26 @@ Engine A operates entirely in-memory using deterministic stylometry algorithms. 
 
 ---
 
-## 4. Known Failure Cases & False Positive Risks
+## 4. Engine B: Server-Side Language Model Evaluation (`src/lib/detectors/engine-b.ts`)
+
+Engine B is an optional, server-side classifier that queries enterprise language models (Google Gemini or OpenAI-compatible endpoints) under strict zero-data-retention and privacy guarantees.
+
+### Qualitative Signals Evaluated
+1. **Semantic Predictability & Information Density**:
+   - Assesses whether the text maintains an unnaturally smooth, predictable distribution of ideas or exhibits genuine authorial digressions, idiosyncratic anecdotes, and uneven information pacing.
+2. **Rhetorical Patterns & Machine Artifacts**:
+   - Analyzes formulaic structural conventions, such as robotic introductory/concluding transitions, sycophantic hedging, excessive balanced clauses, and generic listicle formatting.
+3. **Stylistic & Authorial Voice**:
+   - Identifies domain-authentic colloquialisms, specialized practitioner shorthand, and natural syntactic variance that machine models typically homogenize.
+
+### Fallback & Reliability Guarantees
+- **Strict Zero-Retention**: Payloads are ephemeral in-memory buffers; neither prompt texts nor API keys are persisted or logged.
+- **Fail-Open Graceful Fallback**: If API credentials are not configured, or if the upstream API times out (10s cap) or encounters rate limits, Engine B cleanly falls back without crashing, allowing Engine A statistical stylometry to proceed uninterrupted.
+- **Strict Zod Validation**: Upstream model outputs are parsed and validated against `LLMResponseSchema`. Any non-conforming or hallucinated response triggers the fallback pathway.
+
+---
+
+## 5. Known Failure Cases & False Positive Risks
 
 Users and evaluators must account for known failure modes:
 
@@ -66,7 +85,7 @@ Users and evaluators must account for known failure modes:
 
 ---
 
-## 5. Multi-Engine Combiner & Range Widening (`src/lib/detectors/combiner.ts`)
+## 6. Multi-Engine Combiner & Range Widening (`src/lib/detectors/combiner.ts`)
 
 When multiple engines (e.g., Engine A statistical + Engine B language model) evaluate the same text:
 - **Agreement**: When engines produce concordant ranges, the combined score envelope remains focused and confidence is high.

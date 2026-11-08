@@ -7,7 +7,7 @@ import {
   DetectionLabel,
 } from './types';
 import { THRESHOLDS } from './config/thresholds';
-import { splitParagraphs, splitSentences } from './utils';
+import { splitParagraphs, splitSentences, tokenizeWords } from './utils';
 
 const COMMON_FUNCTION_WORDS = new Set([
   'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for', 'not', 'on',
@@ -20,14 +20,6 @@ const COMMON_FUNCTION_WORDS = new Set([
   'how', 'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want', 'because', 'any',
   'these', 'give', 'day', 'most', 'us', 'between', 'during', 'through', 'under', 'such',
 ]);
-
-/**
- * Extracts normalized tokens from text using Unicode-aware letter and number matching.
- * Correctly parses multi-lingual scripts (e.g., Arabic, Latin, Greek, CJK).
- */
-function tokenizeWords(text: string): string[] {
-  return (text.toLowerCase().match(/[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)?/gu) || []).filter((w) => w.length > 0);
-}
 
 /**
  * Computes sentence-length variance (burstiness indicator).

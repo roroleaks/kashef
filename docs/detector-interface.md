@@ -64,13 +64,15 @@ export interface ParagraphAnalysis {
   * Engine registration and retrieval verified.
   * Score range structure (`[low, high]`) verified.
   * Paragraph segmentation and sentence abbreviation protection verified.
-* **Overall Vitest Suite**: 18 / 18 tests passing across pipeline and interface suites.
+* **Overall Vitest Suite**: 60 / 60 tests passing across pipeline, interface, engine-a, engine-b, and evaluation suites.
 * **Typecheck**: `tsc --noEmit` exited with 0 errors.
 * **Lint**: `eslint .` exited with 0 errors.
-* **Build**: `next build` compiled successfully in 6.1s.
+* **Build**: `next build` compiled successfully.
 
 ---
 
-## 4. What Is Still Unverified / Next Step
+## 4. Detection Engines Registered
 
-* Engine A (statistical signals: sentence-length variance, type-token ratio, n-gram repetition, punctuation/function-word profile) is to be implemented in **Step 3**.
+* `engine-a-statistical`: Heuristic stylometry (sentence-length variance, MATTR lexical diversity, hapax rate, n-gram repetition, punctuation diversity, function-word density).
+* `engine-b-llm`: Server-side LLM zero-retention classifier (semantic predictability, rhetorical markers, authorial voice).
+* `combiner`: Multi-engine consensus and score envelope range widening.

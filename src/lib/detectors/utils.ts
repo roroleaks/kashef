@@ -1,4 +1,12 @@
 /**
+ * Extracts normalized tokens from text using Unicode-aware letter and number matching.
+ * Correctly parses multi-lingual scripts (e.g., Arabic, Latin, Greek, Cyrillic, CJK).
+ */
+export function tokenizeWords(text: string): string[] {
+  return (text.toLowerCase().match(/[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)?/gu) || []).filter((w) => w.length > 0);
+}
+
+/**
  * Text segmentation utilities for the Kashef detector engine modules.
  */
 

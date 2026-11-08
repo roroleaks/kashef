@@ -1,5 +1,7 @@
 import { DetectorEngine, DetectionResult } from './types';
 import { engineA } from './engine-a';
+import { engineB, isEngineBConfigured } from './engine-b';
+import { combineResults } from './combiner';
 
 const engines = new Map<string, DetectorEngine>();
 let defaultEngineId = 'engine-a-statistical';
@@ -7,6 +9,8 @@ let defaultEngineId = 'engine-a-statistical';
 // Register standard built-in engines
 engines.set(engineA.id, engineA);
 engines.set('statistical', engineA); // Alias
+engines.set(engineB.id, engineB);
+engines.set('llm', engineB); // Alias
 
 /**
  * Registers an interchangeable detector engine implementation.
@@ -55,15 +59,33 @@ export function listEngines(): { id: string; name: string; description: string }
 }
 
 /**
- * Main unified entrypoint: analyze(text) -> DetectionResult
+ * Main unified entrypoint: analyze(text, engineId?) -> DetectionResult
+ * When engineId is 'combined' or omitted with Engine B configured, runs both engines
+ * and merges their probability ranges via combineResults().
  */
 export async function analyze(text: string, engineId?: string): Promise<DetectionResult> {
-  const detector = getDetector(engineId);
-  return detector.analyze(text);
+  if (engineId && engineId !== 'combined' && engineId !== 'all') {
+    const detector = getDetector(engineId);
+    return detector.analyze(text);
+  }
+
+  // If engineId is 'combined'/'all' or if Engine B is configured, run both and combine
+  if (engineId === 'combined' || engineId === 'all' || isEngineBConfigured()) {
+    const [resultA, resultB] = await Promise.all([
+      engineA.analyze(text),
+      engineB.analyze(text),
+    ]);
+
+    // If Engine B was unconfigured or failed, combineResults gracefully handles it
+    return combineResults([resultA, resultB]);
+  }
+
+  return engineA.analyze(text);
 }
 
 export * from './types';
 export * from './utils';
 export * from './engine-a';
+export * from './engine-b';
 export * from './combiner';
 export * from './config/thresholds';
