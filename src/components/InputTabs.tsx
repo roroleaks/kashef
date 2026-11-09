@@ -66,7 +66,19 @@ export const InputTabs: React.FC = () => {
         body,
       });
 
-      const data: ApiResponse = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let data: ApiResponse;
+
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(
+          response.ok
+            ? 'Received unexpected non-JSON response from server.'
+            : `Server error (${response.status}): ${text.slice(0, 120)}`
+        );
+      }
 
       if (!response.ok || !data.success) {
         throw new Error(data.message || data.error || 'Analysis failed. Please check your input.');
